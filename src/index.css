@@ -1,0 +1,26 @@
+@font-face {
+  font-family: "Brown Sugar";
+  src: url("./assets/brown-sugar.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "Eyesome Script";
+  src: url("./assets/Eyesome-Script.otf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+}
+
+.titulo {
+  font-family: "Brown Sugar", serif;
+  font-size: 60px;
+  text-align: center;
+}
+
+.subtitulo {
+  font-family: "Eyesome Script", cursive;
+  font-size: 87px;
+  text-align: center;
+  margin-top: 10px;
+}
