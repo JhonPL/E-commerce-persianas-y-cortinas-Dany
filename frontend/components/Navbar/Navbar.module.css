@@ -1,0 +1,116 @@
+.navbar {
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 1000;
+  background: transparent;
+  transition: background 0.3s ease, border-color 0.3s ease;
+  border-bottom: 1px solid transparent;
+}
+.navbar.scrolled {
+  background: rgba(0, 0, 0, 0.95);
+  border-bottom-color: rgba(143, 194, 99, 0.15);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.inner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 50px;
+  height: 64px;
+}
+
+/* ── Logo ───────────────────────────────────────────────────────── */
+.logo { display: flex; align-items: center; gap: 8px; text-decoration: none; color: #fff; }
+.logoIcon { font-size: 1.4rem; }
+.logoText { display: flex; flex-direction: column; line-height: 1.1; }
+.logoTop {
+  font-size: 0.55rem; font-weight: 300;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: #8fc263;
+}
+.logoBottom {
+  font-family: "Brown Sugar", serif;
+  font-size: 1.1rem; color: #cfe795; letter-spacing: 0.08em;
+}
+
+/* ── Nav ────────────────────────────────────────────────────────── */
+.nav { display: flex; align-items: center; gap: 40px; }
+.link {
+  font-size: 0.8rem; font-weight: 400;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: #a0a09a; text-decoration: none;
+  transition: color 0.3s ease;
+  position: relative; padding-bottom: 2px;
+}
+.link::after {
+  content: '';
+  position: absolute; bottom: -2px; left: 0;
+  width: 0; height: 1px;
+  background: #8fc263;
+  transition: width 0.3s ease;
+}
+.link:hover, .link.active { color: #f7efd3; }
+.link:hover::after, .link.active::after { width: 100%; }
+
+/* ── Actions ────────────────────────────────────────────────────── */
+.actions { display: flex; align-items: center; gap: 16px; }
+.iconBtn {
+  display: flex; align-items: center; gap: 6px;
+  color: #a0a09a; background: none; border: none;
+  cursor: pointer; transition: color 0.3s ease;
+  position: relative; padding: 4px; text-decoration: none;
+}
+.iconBtn:hover { color: #f7efd3; }
+.iconLabel { font-size: 0.95rem; letter-spacing: 0.08em; color: inherit; }
+.badge {
+  position: absolute; top: -4px; right: -6px;
+  background: #8fc263; color: #000000;
+  font-size: 0.6rem; font-weight: 700;
+  width: 16px; height: 16px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* ── Buscador ───────────────────────────────────────────────────── */
+.searchBar {
+  padding: 8px 50px;
+  background: rgba(0, 0, 0, 0.97);
+  border-top: 1px solid rgba(143, 194, 99, 0.12);
+  animation: slideDown 0.2s ease;
+}
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.searchInput {
+  width: 100%; max-width: 480px;
+  background: #111; border: 1px solid rgba(143, 194, 99, 0.2);
+  color: #f7efd3; font-size: 0.95rem;
+  padding: 8px 16px; border-radius: 6px;
+  outline: none; transition: border-color 0.3s ease;
+}
+.searchInput::placeholder { color: #444; }
+.searchInput:focus { border-color: #8fc263; }
+
+/* ── Hamburger ──────────────────────────────────────────────────── */
+.hamburger { display: none; color: #f7efd3; background: none; border: none; cursor: pointer; padding: 4px; }
+
+/* ── Responsive ─────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .inner { padding: 5px 20px; }
+  .hamburger { display: flex; }
+  .iconLabel { display: none; }
+  .nav {
+    display: none; position: fixed;
+    top: 64px; left: 0; right: 0;
+    background: rgba(0, 0, 0, 0.98);
+    flex-direction: column; align-items: flex-start;
+    padding: 24px 20px; gap: 20px;
+    border-bottom: 1px solid rgba(143, 194, 99, 0.12);
+  }
+  .nav.navOpen { display: flex; }
+  .link { font-size: 1rem; }
+  .searchBar { padding: 8px 20px; }
+}
