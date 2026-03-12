@@ -21,7 +21,7 @@ export default function Footer() {
         {/* Contacto */}
         <div className={styles.contact}>
           <a
-            href="https://wa.me/573001234567"
+            href="https://wa.me/573123558218"
             target="_blank"
             rel="noopener noreferrer"
             className={styles.contactLink}

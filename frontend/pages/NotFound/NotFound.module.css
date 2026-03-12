@@ -1,0 +1,117 @@
+.page {
+  min-height: 100vh;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+}
+
+.inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  text-align: center;
+  max-width: 480px;
+}
+
+/* Número grande */
+.code {
+  font-family: "Brown Sugar", serif;
+  font-size: clamp(7rem, 20vw, 12rem);
+  font-weight: normal;
+  color: transparent;
+  -webkit-text-stroke: 2px rgba(143, 194, 99, 0.25);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  user-select: none;
+}
+
+/* Emoji decorativo */
+.curtain {
+  font-size: 2.2rem;
+  display: flex;
+  gap: 8px;
+  margin-top: -20px;
+  opacity: 0.6;
+  animation: swing 3s ease-in-out infinite alternate;
+}
+@keyframes swing {
+  from { transform: rotate(-3deg); }
+  to   { transform: rotate(3deg); }
+}
+
+.title {
+  font-family: "Brown Sugar", serif;
+  font-size: clamp(1.4rem, 4vw, 2rem);
+  font-weight: normal;
+  color: #f7efd3;
+  letter-spacing: 0.04em;
+  margin: 0;
+}
+
+.sub {
+  font-size: 0.9rem;
+  font-weight: 300;
+  color: #888;
+  line-height: 1.7;
+  margin: 0;
+}
+
+/* Botones */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.btnPrimary {
+  display: inline-flex;
+  align-items: center;
+  background: #8fc263;
+  color: #000;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 12px 28px;
+  border-radius: 7px;
+  text-decoration: none;
+  transition: background 0.25s, transform 0.2s;
+}
+.btnPrimary:hover { background: #cfe795; transform: translateY(-2px); }
+
+.btnSecondary {
+  display: inline-flex;
+  align-items: center;
+  background: none;
+  color: #f7efd3;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 12px 28px;
+  border-radius: 7px;
+  border: 1px solid rgba(143,194,99,0.25);
+  text-decoration: none;
+  transition: border-color 0.25s, color 0.25s;
+}
+.btnSecondary:hover { border-color: #8fc263; color: #8fc263; }
+
+.btnGhost {
+  display: inline-flex;
+  align-items: center;
+  background: none;
+  color: #555;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  padding: 12px 20px;
+  border-radius: 7px;
+  border: none;
+  cursor: pointer;
+  transition: color 0.25s;
+}
+.btnGhost:hover { color: #f7efd3; }

@@ -6,7 +6,7 @@ const WHATSAPP_ICON = (
   </svg>
 )
 
-export default function WhatsAppButton({ phoneNumber = '573001234567', message = 'Hola, me gustaría recibir asesoría sobre sus productos.' }) {
+export default function WhatsAppButton({ phoneNumber = '573123558218', message = 'Hola, me gustaría recibir asesoría sobre sus productos.' }) {
   const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`
 
   return (
