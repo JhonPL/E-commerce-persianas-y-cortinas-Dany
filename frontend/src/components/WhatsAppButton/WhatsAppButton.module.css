@@ -1,0 +1,48 @@
+.btn {
+  position: fixed;
+  bottom: 40px;
+  right: 40px;
+  z-index: 150;
+  width: 54px;
+  height: 54px;
+  background: #25D366;
+  color: #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(37, 211, 102, 0.4);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  text-decoration: none;
+  animation: pulse 3s ease infinite;
+}
+.btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 28px rgba(37, 211, 102, 0.6);
+  animation: none;
+}
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 4px 20px rgba(37, 211, 102, 0.4); }
+  50%       { box-shadow: 0 4px 32px rgba(37, 211, 102, 0.7); }
+}
+.tooltip {
+  position: absolute;
+  right: calc(100% + 12px);
+  background: #1c1916;
+  color: #f0ece4;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(6px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.btn:hover .tooltip { opacity: 1; transform: translateX(0); }
+@media (max-width: 480px) {
+  .btn { bottom: 20px; right: 16px; }
+  .tooltip { display: none; }
+}
