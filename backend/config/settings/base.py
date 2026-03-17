@@ -116,6 +116,9 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
+    'USER_ID_FIELD':          'usuario_id',   # ← agrega esta línea
+    'USER_ID_CLAIM':          'usuario_id',   # ← y esta
+
 }
 
 # ─────────────────────────────────────────
