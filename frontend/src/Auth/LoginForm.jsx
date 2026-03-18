@@ -76,6 +76,10 @@ export default function LoginForm({ from, onSwitchToRegister }) {
         </div>
       )}
 
+
+
+
+
       {/* Email */}
       <div className={styles.field}>
         <label className={styles.label}>
