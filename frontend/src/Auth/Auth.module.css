@@ -450,3 +450,87 @@
   .oauthRow { flex-direction: column; }
   .formTitle { font-size: 1.6rem; }
 }
+
+/* ── Modal cuenta creada ────────────────────────────────────────── */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.2s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.modalBox {
+  background: #0d0d0d;
+  border: 1px solid rgba(143, 194, 99, 0.2);
+  border-radius: 14px;
+  padding: 40px 36px;
+  max-width: 380px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  animation: slideUp 0.25s ease;
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.modalIcon {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(143, 194, 99, 0.1);
+  border: 1px solid rgba(143, 194, 99, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modalTitle {
+  font-family: "Brown Sugar", serif;
+  font-size: 1.6rem;
+  font-weight: normal;
+  color: #f7efd3;
+  letter-spacing: 0.03em;
+}
+
+.modalSub {
+  font-size: 0.9rem;
+  font-weight: 300;
+  color: #888;
+  line-height: 1.6;
+}
+.modalSub strong {
+  color: #f7efd3;
+  font-weight: 500;
+}
+
+.modalBtn {
+  margin-top: 8px;
+  width: 100%;
+  padding: 13px;
+  background: #8fc263;
+  color: #000;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 0.25s, transform 0.2s;
+}
+.modalBtn:hover { background: #cfe795; transform: translateY(-1px); }

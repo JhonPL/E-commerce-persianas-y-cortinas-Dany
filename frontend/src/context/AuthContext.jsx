@@ -1,5 +1,19 @@
 import { createContext, useContext, useReducer, useCallback } from 'react'
 
+// URL base del backend
+const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api/v1'
+
+// Convierte los errores de DRF (pueden ser objeto o string) a un mensaje legible
+function extraerError(data) {
+  if (!data) return 'Error desconocido'
+  if (typeof data === 'string') return data
+  if (data.detail) return data.detail
+  // DRF devuelve { campo: ["mensaje"], ... }
+  const primer = Object.values(data)[0]
+  if (Array.isArray(primer)) return primer[0]
+  return JSON.stringify(data)
+}
+
 const initialState = {
   user: null,       // { usuario_id, nombre, email, rol }
   token: null,
@@ -27,12 +41,12 @@ const AuthContext = createContext(null)
 export function AuthProvider({ children }) {
   const [state, dispatch] = useReducer(authReducer, initialState)
 
-  // Login local (email + password)
+  // ── Login local ───────────────────────────────────────────────────
   const login = useCallback(async (email, password) => {
     dispatch({ type: 'AUTH_START' })
     try {
-      // TODO: reemplazar por fetch real a /api/auth/login
-      // Simulación para desarrollo frontend
+      // TODO: reemplazar mock por fetch real cuando el backend esté listo
+      // Mock temporal para desarrollo
       await new Promise(r => setTimeout(r, 800))
       if (email === 'admin@cortinasydany.com' && password === 'Admin2024$') {
         const user = { usuario_id: 1, nombre: 'Administrador Dany', email, rol: 'admin' }
@@ -51,22 +65,59 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  // Registro local
+  // ── Registro real contra el backend ──────────────────────────────
   const register = useCallback(async (nombre, email, password) => {
     dispatch({ type: 'AUTH_START' })
     try {
-      await new Promise(r => setTimeout(r, 800))
-      // TODO: reemplazar por fetch real a /api/auth/register
-      const user = { usuario_id: Date.now(), nombre, email, rol: 'cliente' }
-      dispatch({ type: 'AUTH_SUCCESS', payload: { user, token: 'mock-token-new' } })
-      return { success: true }
+      const res = await fetch(`${API_URL}/auth/registro/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre,
+          email,
+          password,
+          password_confirmar: password,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        // DRF devuelve errores como { campo: ["mensaje"] } o { detail: "..." }
+        throw new Error(extraerError(data))
+      }
+
+      // Registro exitoso → login automático para obtener el token JWT
+      const loginResult = await fetch(`${API_URL}/auth/login/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
+
+      const loginData = await loginResult.json()
+
+      if (!loginResult.ok) {
+        throw new Error(extraerError(loginData))
+      }
+
+      // loginData = { usuario: { usuario_id, nombre, email, rol_nombre }, access, refresh }
+      const user = {
+        usuario_id: loginData.usuario.usuario_id,
+        nombre:     loginData.usuario.nombre,
+        email:      loginData.usuario.email,
+        rol:        loginData.usuario.rol_nombre,
+      }
+
+      dispatch({ type: 'AUTH_SUCCESS', payload: { user, token: loginData.access } })
+      return { success: true, rol: user.rol }
+
     } catch (err) {
       dispatch({ type: 'AUTH_ERROR', payload: err.message })
       return { success: false, error: err.message }
     }
   }, [])
 
-  const logout = useCallback(() => dispatch({ type: 'LOGOUT' }), [])
+  const logout     = useCallback(() => dispatch({ type: 'LOGOUT' }), [])
   const clearError = useCallback(() => dispatch({ type: 'AUTH_ERROR', payload: null }), [])
 
   return (
