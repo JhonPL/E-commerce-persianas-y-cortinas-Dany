@@ -56,7 +56,9 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
 
     USERNAME_FIELD  = 'email'
     REQUIRED_FIELDS = ['nombre']
-
+    @property
+    def id(self):
+        return self.usuario_id
     class Meta:
         db_table = 'usuarios'
 

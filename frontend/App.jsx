@@ -29,7 +29,7 @@ function RequireAuth({ children }) {
 function RequireAdmin({ children }) {
   const { user } = useAuth()
   if (!user) return <Navigate to="/login" replace />
-  if (user.rol !== 'admin') return <Navigate to="/" replace />
+  if (user.rol_nombre !== 'admin') return <Navigate to="/" replace />
   return children
 }
 
