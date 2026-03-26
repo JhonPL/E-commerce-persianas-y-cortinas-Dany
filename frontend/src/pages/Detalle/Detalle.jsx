@@ -1,85 +1,66 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ChevronLeft, ShoppingCart, Play, AlertCircle } from 'lucide-react'
+import { ChevronLeft, ShoppingCart, AlertCircle, Loader, ImageOff } from 'lucide-react'
 import { useCart } from '../../context/CartContext'
 import styles from './Detalle.module.css'
 
-// Mock — reemplazar por fetch a la API
-const PRODUCTOS = {
-  1: {
-    producto_id: 1,
-    nombre: 'Cortina Clásica',
-    descripcion: 'Cortina de tela de alta calidad con caída elegante. Disponible en múltiples telas y colores para adaptarse perfectamente a tu espacio. Fabricación artesanal con acabados de lujo.',
-    precio_m2: 120000,
-    categoria: 'Cortinas',
-    imagenes: [
-      'https://images.unsplash.com/photo-1586105251261-72a756497a11?w=800&q=80',
-      'https://images.unsplash.com/photo-1567225557594-88887a55d299?w=800&q=80',
-      'https://images.unsplash.com/photo-1615874959474-d609969a20ed?w=800&q=80',
-    ],
-    guia: {
-      instrucciones: 'Para cortinas, mide el ancho del riel o barra donde se instalará la cortina. Para el alto, mide desde la parte superior del riel hasta donde deseas que llegue la cortina (suelo, repisa o punto intermedio). Se recomienda agregar al menos 20 cm al ancho para el efecto de vuelo y 5 cm al alto para el dobladillo.',
-      video_url: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
-    },
-  },
-  2: {
-    producto_id: 2,
-    nombre: 'Persiana Enrollable',
-    descripcion: 'Persiana enrollable de tela técnica con mecanismo de cadena de alta durabilidad. Perfecta para controlar la entrada de luz y dar privacidad a tu espacio.',
-    precio_m2: 180000,
-    categoria: 'Persianas',
-    imagenes: [
-      'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80',
-      'https://images.unsplash.com/photo-1449247709967-d4461a6a6103?w=800&q=80',
-    ],
-    guia: {
-      instrucciones: 'Para persianas enrollables, mide el ancho interno del vano (de pared a pared) y el alto desde el techo hasta el suelo. El sistema se instalará dentro del vano. Se recomienda descontar 1 cm del ancho para asegurar un ajuste perfecto.',
-      video_url: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
-    },
-  },
-}
+const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api/v1'
 
 const formatCOP = (n) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
 
+// Instrucciones genéricas de medición por categoría
+const GUIA_DEFAULT = {
+  'Cortinas':   'Mide el ancho del riel o barra y el alto desde la parte superior del riel hasta donde deseas que llegue la cortina. Agrega al menos 20 cm al ancho para el efecto de vuelo.',
+  'Persianas':  'Mide el ancho interno del vano (de pared a pared) y el alto desde el techo hasta el suelo. Descuenta 1 cm del ancho para un ajuste perfecto.',
+  'Paneles':    'Mide el ancho total del vano y el alto desde el techo hasta el suelo. Cada panel ocupa aproximadamente 60 cm de ancho.',
+  'Accesorios': 'Consulta las medidas específicas del accesorio en la descripción del producto.',
+}
+const GUIA_FALLBACK = 'Mide el ancho y el alto del vano donde se instalará el producto. Ingresa las medidas en centímetros para calcular el precio total.'
+
 export default function Detalle() {
-  const { id } = useParams()
+  const { id }               = useParams()
   const { addItem, toggleCart } = useCart()
 
-  const product = PRODUCTOS[id]
+  const [product,    setProduct]    = useState(null)
+  const [loading,    setLoading]    = useState(true)
+  const [error,      setError]      = useState('')
+  const [imgActiva,  setImgActiva]  = useState(0)
+  const [ancho,      setAncho]      = useState('')
+  const [alto,       setAlto]       = useState('')
+  const [medErrors,  setMedErrors]  = useState({})
+  const [added,      setAdded]      = useState(false)
 
-  const [imgActiva, setImgActiva]   = useState(0)
-  const [ancho,     setAncho]       = useState('')
-  const [alto,      setAlto]        = useState('')
-  const [errors,    setErrors]      = useState({})
-  const [added,     setAdded]       = useState(false)
-  const [showVideo, setShowVideo]   = useState(false)
+  // Cargar producto del backend
+  useEffect(() => {
+    setLoading(true); setError(''); setImgActiva(0)
+    fetch(`${API_URL}/catalogo/productos/${id}/`)
+      .then(r => {
+        if (!r.ok) throw new Error('Producto no encontrado')
+        return r.json()
+      })
+      .then(data => setProduct(data))
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false))
+  }, [id])
 
   // Cálculo en tiempo real
   const calculo = useMemo(() => {
+    if (!product) return null
     const a = parseFloat(ancho)
     const h = parseFloat(alto)
     if (!a || !h || a <= 0 || h <= 0) return null
-    const area = (a * h) / 10000
-    const precio = area * product?.precio_m2
+    const area   = (a * h) / 10000
+    const precio = area * product.precio_m2
     return { area: area.toFixed(4), precio: precio.toFixed(0) }
   }, [ancho, alto, product])
 
-  if (!product) {
-    return (
-      <div className={styles.notFound}>
-        <p>Producto no encontrado.</p>
-        <Link to="/tienda" className={styles.backLink}>← Volver a la tienda</Link>
-      </div>
-    )
-  }
-
   const validate = () => {
-    const errs = {}
-    if (!ancho || parseFloat(ancho) <= 0) errs.ancho = 'Ingresa el ancho del vano'
-    if (!alto  || parseFloat(alto)  <= 0) errs.alto  = 'Ingresa el alto del vano'
-    setErrors(errs)
-    return Object.keys(errs).length === 0
+    const e = {}
+    if (!ancho || parseFloat(ancho) <= 0) e.ancho = 'Ingresa el ancho del vano'
+    if (!alto  || parseFloat(alto)  <= 0) e.alto  = 'Ingresa el alto del vano'
+    setMedErrors(e)
+    return !Object.keys(e).length
   }
 
   const handleAddToCart = () => {
@@ -90,34 +71,65 @@ export default function Detalle() {
     toggleCart()
   }
 
+  /* ── Estados de carga / error ── */
+  if (loading) return (
+    <div className={styles.centerState}>
+      <Loader size={32} className={styles.spinIcon} />
+      <p>Cargando producto...</p>
+    </div>
+  )
+
+  if (error || !product) return (
+    <div className={styles.notFound}>
+      <p>{error || 'Producto no encontrado.'}</p>
+      <Link to="/tienda" className={styles.backLink}>← Volver a la tienda</Link>
+    </div>
+  )
+
+  // Normalizar imágenes — el backend devuelve [{ imagen_id, url, es_principal, orden }]
+  const imagenes = product.imagenes?.length > 0
+    ? product.imagenes.map(i => i.url)
+    : []
+
+  const categorNombre = product.categoria_nombre || ''
+  const guiaTexto     = GUIA_DEFAULT[categorNombre] || GUIA_FALLBACK
+
   return (
     <div className={styles.page}>
       <div className="container">
+
         {/* Breadcrumb */}
         <nav className={styles.breadcrumb}>
           <Link to="/tienda" className={styles.breadBack}>
             <ChevronLeft size={16} /> Tienda
           </Link>
           <span className={styles.breadSep}>/</span>
-          <span>{product.categoria}</span>
+          <span>{categorNombre}</span>
           <span className={styles.breadSep}>/</span>
           <span className={styles.breadCurrent}>{product.nombre}</span>
         </nav>
 
         <div className={styles.layout}>
-          {/* ── Galería ─────────────────────────────────────────────── */}
+
+          {/* ── Galería ── */}
           <div className={styles.gallery}>
             <div className={styles.mainImg}>
-              <img src={product.imagenes[imgActiva]} alt={product.nombre} />
+              {imagenes.length > 0
+                ? <img src={imagenes[imgActiva]} alt={product.nombre} />
+                : (
+                  <div className={styles.noImgPlaceholder}>
+                    <ImageOff size={48} />
+                    <span>Sin imágenes</span>
+                  </div>
+                )
+              }
             </div>
-            {product.imagenes.length > 1 && (
+            {imagenes.length > 1 && (
               <div className={styles.thumbs}>
-                {product.imagenes.map((img, i) => (
-                  <button
-                    key={i}
+                {imagenes.map((img, i) => (
+                  <button key={i}
                     className={`${styles.thumb} ${imgActiva === i ? styles.thumbActive : ''}`}
-                    onClick={() => setImgActiva(i)}
-                  >
+                    onClick={() => setImgActiva(i)}>
                     <img src={img} alt={`Vista ${i + 1}`} />
                   </button>
                 ))}
@@ -125,15 +137,18 @@ export default function Detalle() {
             )}
           </div>
 
-          {/* ── Info + Medidas ──────────────────────────────────────── */}
+          {/* ── Info + medidas ── */}
           <div className={styles.info}>
-            <span className={styles.categoria}>{product.categoria}</span>
+            <span className={styles.categoria}>{categorNombre}</span>
             <h1 className={styles.nombre}>{product.nombre}</h1>
             <p className={styles.precioBase}>
               <span className={styles.precioLabel}>Precio base: </span>
-              {formatCOP(product.precio_m2)}<span className={styles.precioUnit}>/m²</span>
+              {formatCOP(product.precio_m2)}
+              <span className={styles.precioUnit}>/m²</span>
             </p>
-            <p className={styles.descripcion}>{product.descripcion}</p>
+            {product.descripcion && (
+              <p className={styles.descripcion}>{product.descripcion}</p>
+            )}
 
             <div className={styles.divider} />
 
@@ -143,27 +158,7 @@ export default function Detalle() {
                 <AlertCircle size={16} />
                 ¿Cómo tomar las medidas?
               </h3>
-              <p className={styles.guiaTexto}>{product.guia.instrucciones}</p>
-              {product.guia.video_url && (
-                <button
-                  className={styles.videoBtn}
-                  onClick={() => setShowVideo(v => !v)}
-                >
-                  <Play size={14} />
-                  {showVideo ? 'Ocultar video' : 'Ver video instructivo'}
-                </button>
-              )}
-              {showVideo && (
-                <div className={styles.videoWrapper}>
-                  <iframe
-                    src={product.guia.video_url}
-                    title="Video instructivo de medidas"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                    className={styles.video}
-                  />
-                </div>
-              )}
+              <p className={styles.guiaTexto}>{guiaTexto}</p>
             </div>
 
             <div className={styles.divider} />
@@ -174,27 +169,19 @@ export default function Detalle() {
               <div className={styles.medidasGrid}>
                 <div className={styles.field}>
                   <label className={styles.label}>Ancho (cm)</label>
-                  <input
-                    type="number"
-                    min="1"
-                    placeholder="ej: 150"
+                  <input type="number" min="1" placeholder="ej: 150"
                     value={ancho}
-                    onChange={e => { setAncho(e.target.value); setErrors(prev => ({ ...prev, ancho: '' })) }}
-                    className={`${styles.input} ${errors.ancho ? styles.inputError : ''}`}
-                  />
-                  {errors.ancho && <span className={styles.errorMsg}>{errors.ancho}</span>}
+                    onChange={e => { setAncho(e.target.value); setMedErrors(p => ({ ...p, ancho: '' })) }}
+                    className={`${styles.input} ${medErrors.ancho ? styles.inputError : ''}`} />
+                  {medErrors.ancho && <span className={styles.errorMsg}>{medErrors.ancho}</span>}
                 </div>
                 <div className={styles.field}>
                   <label className={styles.label}>Alto (cm)</label>
-                  <input
-                    type="number"
-                    min="1"
-                    placeholder="ej: 220"
+                  <input type="number" min="1" placeholder="ej: 220"
                     value={alto}
-                    onChange={e => { setAlto(e.target.value); setErrors(prev => ({ ...prev, alto: '' })) }}
-                    className={`${styles.input} ${errors.alto ? styles.inputError : ''}`}
-                  />
-                  {errors.alto && <span className={styles.errorMsg}>{errors.alto}</span>}
+                    onChange={e => { setAlto(e.target.value); setMedErrors(p => ({ ...p, alto: '' })) }}
+                    className={`${styles.input} ${medErrors.alto ? styles.inputError : ''}`} />
+                  {medErrors.alto && <span className={styles.errorMsg}>{medErrors.alto}</span>}
                 </div>
               </div>
 
@@ -219,8 +206,7 @@ export default function Detalle() {
 
               <button
                 className={`${styles.addBtn} ${added ? styles.addBtnSuccess : ''}`}
-                onClick={handleAddToCart}
-              >
+                onClick={handleAddToCart}>
                 <ShoppingCart size={18} />
                 {added ? '¡Agregado al carrito!' : 'Agregar al carrito'}
               </button>

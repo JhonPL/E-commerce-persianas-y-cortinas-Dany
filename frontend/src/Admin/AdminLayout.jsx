@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { NavLink, useNavigate, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
-  LayoutDashboard, Package, ShoppingBag, Users,
+  LayoutDashboard, Package, ShoppingBag, Users, Tag,
   ChevronLeft, ChevronRight, LogOut, Menu, Bell, X
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
@@ -10,20 +10,20 @@ import styles from './Admin.module.css'
 const NAV = [
   { to: '/admin',           icon: LayoutDashboard, label: 'Dashboard',  end: true },
   { to: '/admin/productos', icon: Package,          label: 'Productos'  },
+  { to: '/admin/categorias',icon: Tag,              label: 'Categorías' },
   { to: '/admin/pedidos',   icon: ShoppingBag,      label: 'Pedidos'    },
   { to: '/admin/usuarios',  icon: Users,            label: 'Usuarios'   },
 ]
 
 export default function AdminLayout() {
   const { user, logout } = useAuth()
-  const navigate = useNavigate()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const navigate = useNavigate()
 
-  const handleLogout = () => { 
+  const handleLogout = () => {
+    navigate('/', { replace: true })
     logout()
-    window.history.replaceState(null, '', '/')
-    navigate('/login')
   }
 
   return (
