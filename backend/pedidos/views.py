@@ -15,6 +15,8 @@ def mis_pedidos(request):
     """
     GET /api/v1/pedidos/
     Devuelve todos los pedidos del cliente autenticado, del más reciente al más antiguo.
+    Incluye el detalle completo de ítems para que el frontend pueda mostrarlos
+    al expandir cada tarjeta sin necesidad de una petición adicional.
     """
     try:
         cliente = request.user.cliente
@@ -28,7 +30,9 @@ def mis_pedidos(request):
         .prefetch_related('detalles__producto__imagenes')
         .order_by('-fecha_pedido')
     )
-    serializer = PedidoListSerializer(pedidos, many=True)
+    # PedidoDetalleSerializer hereda PedidoListSerializer y agrega:
+    #   detalles, direccion_completa, notas
+    serializer = PedidoDetalleSerializer(pedidos, many=True)
     return Response({'pedidos': serializer.data, 'total': pedidos.count()})
 
 
@@ -38,11 +42,15 @@ def detalle_pedido(request, pedido_id):
     """
     GET /api/v1/pedidos/<pedido_id>/
     Devuelve el detalle completo de un pedido propio del cliente.
+    Usado por AdminPedidos y por cualquier vista que necesite un pedido individual.
     """
     try:
         cliente = request.user.cliente
     except AttributeError:
-        return Response({'detail': 'No tienes perfil de cliente.'}, status=status.HTTP_403_FORBIDDEN)
+        return Response(
+            {'detail': 'No tienes perfil de cliente.'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
 
     pedido = get_object_or_404(
         Pedido.objects
@@ -63,7 +71,10 @@ def admin_pedidos_list(request):
     GET /api/v1/admin/pedidos/?estado=1&search=&page=1
     Lista todos los pedidos con filtros opcionales. Solo para admins.
     """
-    if not (request.user.is_staff or getattr(request.user, 'rol', None) and request.user.rol.nombre == 'admin'):
+    if not (
+        request.user.is_staff
+        or (hasattr(request.user, 'rol') and request.user.rol.nombre == 'admin')
+    ):
         return Response({'detail': 'No autorizado.'}, status=status.HTTP_403_FORBIDDEN)
 
     queryset = (
@@ -78,14 +89,14 @@ def admin_pedidos_list(request):
     if estado_id:
         queryset = queryset.filter(estado_id=estado_id)
 
-    # Búsqueda por nombre de cliente o ID de pedido
+    # Búsqueda por nombre de cliente, email o ID de pedido
     search = request.query_params.get('search', '').strip()
     if search:
         from django.db.models import Q
         queryset = queryset.filter(
-            Q(pedido_id__icontains=search) |
-            Q(cliente__usuario__nombre__icontains=search) |
-            Q(cliente__usuario__email__icontains=search)
+            Q(pedido_id__icontains=search)
+            | Q(cliente__usuario__nombre__icontains=search)
+            | Q(cliente__usuario__email__icontains=search)
         )
 
     # Paginación simple
@@ -93,7 +104,7 @@ def admin_pedidos_list(request):
     page_size = 20
     total     = queryset.count()
     start     = (page - 1) * page_size
-    pedidos   = queryset[start: start + page_size]
+    pedidos   = queryset[start : start + page_size]
 
     serializer = PedidoListSerializer(pedidos, many=True)
     return Response({
@@ -101,7 +112,7 @@ def admin_pedidos_list(request):
         'total':     total,
         'page':      page,
         'page_size': page_size,
-        'pages':     (total + page_size - 1) // page_size,
+        'pages':     max(1, (total + page_size - 1) // page_size),
     })
 
 
@@ -113,7 +124,10 @@ def admin_pedido_cambiar_estado(request, pedido_id):
     Body: { "estado_id": 2 }
     Cambia el estado del pedido y registra el historial.
     """
-    if not (request.user.is_staff or getattr(request.user, 'rol', None) and request.user.rol.nombre == 'admin'):
+    if not (
+        request.user.is_staff
+        or (hasattr(request.user, 'rol') and request.user.rol.nombre == 'admin')
+    ):
         return Response({'detail': 'No autorizado.'}, status=status.HTTP_403_FORBIDDEN)
 
     pedido = get_object_or_404(
@@ -123,7 +137,10 @@ def admin_pedido_cambiar_estado(request, pedido_id):
 
     estado_id = request.data.get('estado_id')
     if not estado_id:
-        return Response({'detail': 'estado_id es requerido.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {'detail': 'estado_id es requerido.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     nuevo_estado = get_object_or_404(EstadoPedido, estado_id=estado_id)
     pedido.estado = nuevo_estado
@@ -131,14 +148,14 @@ def admin_pedido_cambiar_estado(request, pedido_id):
 
     # Registrar en historial
     HistorialEstadoPedido.objects.create(
-        pedido=pedido,
-        estado=nuevo_estado,
-        cambiado_por=request.user,
+        pedido       = pedido,
+        estado       = nuevo_estado,
+        cambiado_por = request.user,
     )
 
     return Response({
-        'pedido_id':   pedido.pedido_id,
-        'estado_id':   nuevo_estado.estado_id,
+        'pedido_id':     pedido.pedido_id,
+        'estado_id':     nuevo_estado.estado_id,
         'estado_nombre': nuevo_estado.nombre,
     })
 

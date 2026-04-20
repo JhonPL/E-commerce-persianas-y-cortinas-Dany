@@ -61,7 +61,11 @@ function cartReducer(state, action) {
   switch (action.type) {
 
     case 'LOAD_FROM_BACKEND':
-      return { ...state, items: action.payload.map(backendItemToLocal), synced: true }
+      return {
+        ...state,
+        items: Array.isArray(action.payload) ? action.payload.map(backendItemToLocal) : [],
+        synced: true,
+      }
 
     case 'ADD_ITEM': {
       const { product, ancho, alto } = action.payload
@@ -162,17 +166,23 @@ export function CartProvider({ children }) {
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body:    JSON.stringify({ items: itemsLocales }),
         })
-        if (!res.ok) throw new Error()
+        if (!res.ok) throw new Error('Sync failed')
         const data = await res.json()
-        dispatch({ type: 'LOAD_FROM_BACKEND', payload: data.items })
+        if (Array.isArray(data?.items)) {
+          dispatch({ type: 'LOAD_FROM_BACKEND', payload: data.items })
+        }
       } catch {
         // Si falla la sync, cargar igualmente el carrito guardado en BD
         try {
           const res  = await fetch(`${API_URL}/carrito/`, {
             headers: { Authorization: `Bearer ${token}` },
           })
-          const data = await res.json()
-          dispatch({ type: 'LOAD_FROM_BACKEND', payload: data.items })
+          if (res.ok) {
+            const data = await res.json()
+            if (Array.isArray(data?.items)) {
+              dispatch({ type: 'LOAD_FROM_BACKEND', payload: data.items })
+            }
+          }
         } catch { /* fallo silencioso */ }
       }
     }
@@ -207,7 +217,9 @@ export function CartProvider({ children }) {
       if (!res.ok) return
       const data = await res.json()
       // Actualizar item_ids desde la respuesta del backend
-      dispatch({ type: 'LOAD_FROM_BACKEND', payload: data.items })
+      if (Array.isArray(data?.items)) {
+        dispatch({ type: 'LOAD_FROM_BACKEND', payload: data.items })
+      }
     } catch { /* fallo silencioso */ }
   }, [token])
 
