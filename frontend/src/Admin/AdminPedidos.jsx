@@ -1,188 +1,270 @@
-import { useState } from 'react'
-import { Search, X, ChevronDown, Eye } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { useAuth } from '../context/AuthContext'
+import { Search, Eye, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import styles from './AdminPedidos.module.css'
 
-const ESTADOS = ['Pendiente de preparación', 'Preparado', 'Enviado']
-const ESTADO_STYLE = {
-  'Pendiente de preparación': { bg: 'rgba(255,193,7,0.1)',  color: '#ffc107', border: 'rgba(255,193,7,0.2)'  },
-  'Preparado':                { bg: 'rgba(207,231,149,0.1)',color: '#cfe795', border: 'rgba(207,231,149,0.2)' },
-  'Enviado':                  { bg: 'rgba(143,194,99,0.1)', color: '#8fc263', border: 'rgba(143,194,99,0.2)'  },
+const API = import.meta.env.VITE_API_URL
+
+const COLOR_ESTADO = {
+  'Pendiente de preparación': '#f59e0b',
+  'Preparado':                '#3b82f6',
+  'Enviado':                  '#8fc263',
 }
 
-const INITIAL_PEDIDOS = [
-  { id: 'PED-001', cliente: 'María Pérez',       email: 'maria.perez@example.com',       total: 320000,  estado: 'Enviado',                 fecha: '2026-03-10', items: [{producto:'Cortina Blackout', ancho:200, alto:250, area:0.5, precio_m2:160000, total:80000, cantidad:1}, {producto:'Persiana Enrollable', ancho:150, alto:160, area:0.24, precio_m2:180000, total:43200, cantidad:1}] },
-  { id: 'PED-002', cliente: 'Carlos Rodríguez',  email: 'carlos.rodriguez@example.com',  total: 780000,  estado: 'Preparado',               fecha: '2026-03-10', items: [{producto:'Persiana Zebra',    ancho:300, alto:250, area:0.75, precio_m2:200000, total:150000, cantidad:2}] },
-  { id: 'PED-003', cliente: 'Laura Gómez',       email: 'laura.gomez@gmail.com',         total: 215000,  estado: 'Pendiente de preparación',fecha: '2026-03-09', items: [{producto:'Panel Japonés',     ancho:180, alto:240, area:0.432, precio_m2:250000, total:108000, cantidad:1}] },
-  { id: 'PED-004', cliente: 'Jorge Martínez',    email: 'jorge.m@example.com',           total: 540000,  estado: 'Enviado',                 fecha: '2026-03-09', items: [{producto:'Cortina Clásica',   ancho:250, alto:280, area:0.7, precio_m2:120000, total:84000, cantidad:2}] },
-  { id: 'PED-005', cliente: 'Ana Torres',        email: 'ana.torres@example.com',        total: 190000,  estado: 'Pendiente de preparación',fecha: '2026-03-08', items: [{producto:'Persiana Veneciana',ancho:120, alto:180, area:0.216, precio_m2:140000, total:30240, cantidad:1}] },
-  { id: 'PED-006', cliente: 'Luis Herrera',      email: 'luis.h@example.com',            total: 420000,  estado: 'Preparado',               fecha: '2026-03-07', items: [{producto:'Cortina Sheer',     ancho:300, alto:250, area:0.75, precio_m2:95000, total:71250, cantidad:2}] },
-]
+function ModalDetalle({ pedido, estados, onCerrar, onCambiarEstado }) {
+  const [estadoId, setEstadoId] = useState(pedido.estado_id)
+  const [guardando, setGuardando] = useState(false)
 
-const fmt = (n) => `$${Number(n).toLocaleString('es-CO')}`
-
-export default function AdminPedidos() {
-  const [pedidos, setPedidos] = useState(INITIAL_PEDIDOS)
-  const [search, setSearch]   = useState('')
-  const [filter, setFilter]   = useState('Todos')
-  const [detalle, setDetalle] = useState(null)
-
-  const filtered = pedidos.filter(p => {
-    const matchS = p.cliente.toLowerCase().includes(search.toLowerCase()) || p.id.includes(search)
-    const matchF = filter === 'Todos' || p.estado === filter
-    return matchS && matchF
-  })
-
-  const cambiarEstado = (id, nuevoEstado) => {
-    setPedidos(prev => prev.map(p => p.id === id ? { ...p, estado: nuevoEstado } : p))
-    if (detalle?.id === id) setDetalle(prev => ({ ...prev, estado: nuevoEstado }))
+  const cambiar = async () => {
+    if (estadoId === pedido.estado_id) return
+    setGuardando(true)
+    await onCambiarEstado(pedido.pedido_id, estadoId)
+    setGuardando(false)
   }
 
   return (
-    <div className={styles.page}>
-
-      <div className={styles.pageHeader}>
-        <div>
-          <h1 className={styles.pageTitle}>Pedidos</h1>
-          <p className={styles.pageSub}>{pedidos.length} pedidos registrados</p>
+    <div className={styles.overlay} onClick={e => e.target === e.currentTarget && onCerrar()}>
+      <div className={styles.modal}>
+        <div className={styles.modalHeader}>
+          <h3>Pedido #{pedido.pedido_id}</h3>
+          <button onClick={onCerrar}><X size={18} /></button>
         </div>
-      </div>
 
-      {/* Filtros */}
-      <div className={styles.filters}>
-        <div className={styles.searchWrapper}>
-          <Search size={15} className={styles.searchIcon} />
-          <input type="text" placeholder="Buscar por cliente o ID..."
-            value={search} onChange={e => setSearch(e.target.value)}
-            className={styles.searchInput} />
-          {search && <button className={styles.clearSearch} onClick={() => setSearch('')}><X size={14} /></button>}
-        </div>
-        <div className={styles.pills}>
-          {['Todos', ...ESTADOS].map(e => (
-            <button key={e}
-              className={`${styles.pill} ${filter === e ? styles.pillActive : ''}`}
-              onClick={() => setFilter(e)}
-            >{e}</button>
-          ))}
-        </div>
-      </div>
+        <div className={styles.modalBody}>
+          {/* Info cliente */}
+          <div className={styles.infoGrid}>
+            <div><span>Cliente</span><strong>{pedido.cliente_nombre}</strong></div>
+            <div><span>Email</span><strong>{pedido.cliente_email}</strong></div>
+            <div><span>Ciudad</span><strong>{pedido.ciudad || '—'}</strong></div>
+            <div><span>Fecha</span><strong>{new Date(pedido.fecha_pedido).toLocaleDateString('es-CO')}</strong></div>
+          </div>
 
-      {/* Tabla */}
-      <div className={styles.tableCard}>
-        <div className={styles.tableWrapper}>
-          <table className={styles.table}>
+          {/* Cambio de estado */}
+          <div className={styles.estadoRow}>
+            <label>Estado del pedido</label>
+            <select
+              value={estadoId}
+              onChange={e => setEstadoId(Number(e.target.value))}
+              style={{ borderColor: COLOR_ESTADO[estados.find(e => e.estado_id === estadoId)?.nombre] }}
+            >
+              {estados.map(e => (
+                <option key={e.estado_id} value={e.estado_id}>{e.nombre}</option>
+              ))}
+            </select>
+            <button
+              className={styles.btnGuardar}
+              onClick={cambiar}
+              disabled={guardando || estadoId === pedido.estado_id}
+            >
+              {guardando ? 'Guardando…' : 'Guardar'}
+            </button>
+          </div>
+
+          {/* Tabla de ítems */}
+          <table className={styles.tabla}>
             <thead>
-              <tr>
-                <th>ID</th>
-                <th>Cliente</th>
-                <th>Total</th>
-                <th>Estado</th>
-                <th>Fecha</th>
-                <th>Acciones</th>
-              </tr>
+              <tr><th>Producto</th><th>Medidas</th><th>Área</th><th>$/m²</th><th>Cant.</th><th>Total</th></tr>
             </thead>
             <tbody>
-              {filtered.length === 0 && (
-                <tr><td colSpan={6} className={styles.empty}>Sin resultados</td></tr>
-              )}
-              {filtered.map(p => (
-                <tr key={p.id}>
-                  <td className={styles.tdMono}>{p.id}</td>
+              {(pedido.detalles || []).map(d => (
+                <tr key={d.detalle_id}>
                   <td>
-                    <div className={styles.clienteCell}>
-                      <span className={styles.clienteNombre}>{p.cliente}</span>
-                      <span className={styles.clienteEmail}>{p.email}</span>
+                    <div className={styles.prodCell}>
+                      {d.imagen_principal && <img src={d.imagen_principal} alt="" className={styles.thumb} />}
+                      <span>{d.nombre}</span>
                     </div>
                   </td>
-                  <td className={styles.tdGreen}>{fmt(p.total)}</td>
-                  <td>
-                    <StatusSelect
-                      value={p.estado}
-                      onChange={(v) => cambiarEstado(p.id, v)}
-                    />
-                  </td>
-                  <td className={styles.tdMuted}>{p.fecha}</td>
-                  <td>
-                    <button className={styles.viewBtn} onClick={() => setDetalle(p)}>
-                      <Eye size={14} /> Ver
-                    </button>
-                  </td>
+                  <td>{d.ancho_cm}×{d.alto_cm} cm</td>
+                  <td>{parseFloat(d.area_m2).toFixed(2)} m²</td>
+                  <td>${parseFloat(d.precio_m2).toLocaleString('es-CO')}</td>
+                  <td>{d.cantidad}</td>
+                  <td className={styles.tdTotal}>${parseFloat(d.precio_total).toLocaleString('es-CO')}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
-      </div>
 
-      {/* ── Modal detalle pedido ──────────────────────────── */}
-      {detalle && (
-        <div className={styles.overlay} onClick={() => setDetalle(null)}>
-          <div className={styles.modal} onClick={e => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <div>
-                <h2 className={styles.modalTitle}>{detalle.id}</h2>
-                <p className={styles.modalSub}>{detalle.cliente} · {detalle.fecha}</p>
-              </div>
-              <button className={styles.modalClose} onClick={() => setDetalle(null)}><X size={18} /></button>
-            </div>
-            <div className={styles.modalBody}>
-              {/* Estado editable dentro del modal también */}
-              <div className={styles.modalEstado}>
-                <span className={styles.modalEstadoLabel}>Estado actual:</span>
-                <StatusSelect
-                  value={detalle.estado}
-                  onChange={(v) => cambiarEstado(detalle.id, v)}
-                />
-              </div>
-              <div className={styles.modalDivider} />
-              <h3 className={styles.modalSection}>Ítems del pedido</h3>
-              <table className={styles.detalleTable}>
-                <thead>
-                  <tr>
-                    <th>Producto</th>
-                    <th>Medidas</th>
-                    <th>Área m²</th>
-                    <th>Precio/m²</th>
-                    <th>Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {detalle.items.map((item, i) => (
-                    <tr key={i}>
-                      <td>{item.producto}</td>
-                      <td className={styles.tdMuted}>{item.ancho} × {item.alto} cm</td>
-                      <td>{item.area} m²</td>
-                      <td>{fmt(item.precio_m2)}</td>
-                      <td className={styles.tdGreen}>{fmt(item.total)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className={styles.totalRow}>
-                <span className={styles.totalLabel}>Total del pedido</span>
-                <span className={styles.totalValue}>{fmt(detalle.total)}</span>
-              </div>
-            </div>
+          <div className={styles.totalRow}>
+            <span>Total</span>
+            <strong>${parseFloat(pedido.total).toLocaleString('es-CO')}</strong>
           </div>
         </div>
-      )}
+      </div>
     </div>
   )
 }
 
-// Select de estado con color dinámico
-function StatusSelect({ value, onChange }) {
-  const style = ESTADO_STYLE[value] || {}
+export default function AdminPedidos() {
+  const { token } = useAuth()
+  const [pedidos,   setPedidos]   = useState([])
+  const [estados,   setEstados]   = useState([])
+  const [loading,   setLoading]   = useState(true)
+  const [search,    setSearch]    = useState('')
+  const [filtroEst, setFiltroEst] = useState('')
+  const [page,      setPage]      = useState(1)
+  const [pages,     setPages]     = useState(1)
+  const [total,     setTotal]     = useState(0)
+  const [seleccionado, setSeleccionado] = useState(null)
+  const [detalleCache, setDetalleCache] = useState({})
+
+  const cargarEstados = useCallback(async () => {
+    try {
+      const res  = await fetch(`${API}/admin/estados-pedido/`, { headers: { Authorization: `Bearer ${token}` } })
+      const data = await res.json()
+      setEstados(data)
+    } catch { /* silencioso */ }
+  }, [token])
+
+  const cargarPedidos = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams({ page })
+      if (search)    params.set('search', search)
+      if (filtroEst) params.set('estado', filtroEst)
+      const res  = await fetch(`${API}/admin/pedidos/?${params}`, { headers: { Authorization: `Bearer ${token}` } })
+      const data = await res.json()
+      setPedidos(data.pedidos ?? [])
+      setPages(data.pages ?? 1)
+      setTotal(data.total ?? 0)
+    } catch { setPedidos([]) }
+    finally  { setLoading(false) }
+  }, [token, page, search, filtroEst])
+
+  useEffect(() => { cargarEstados() }, [cargarEstados])
+  useEffect(() => { cargarPedidos() }, [cargarPedidos])
+
+  // Cargar detalle completo del pedido al abrir modal
+  const abrirDetalle = async (pedido) => {
+    if (detalleCache[pedido.pedido_id]) {
+      setSeleccionado(detalleCache[pedido.pedido_id])
+      return
+    }
+    try {
+      const res  = await fetch(`${API}/pedidos/${pedido.pedido_id}/`, { headers: { Authorization: `Bearer ${token}` } })
+      const data = await res.json()
+      setDetalleCache(c => ({ ...c, [pedido.pedido_id]: data }))
+      setSeleccionado(data)
+    } catch {
+      setSeleccionado(pedido)   // fallback: sin detalle de ítems
+    }
+  }
+
+  const cambiarEstado = async (pedidoId, estadoId) => {
+    try {
+      const res = await fetch(`${API}/admin/pedidos/${pedidoId}/estado/`, {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body:    JSON.stringify({ estado_id: estadoId }),
+      })
+      if (!res.ok) throw new Error()
+      const data = await res.json()
+      // Actualizar en la lista
+      setPedidos(ps => ps.map(p =>
+        p.pedido_id === pedidoId
+          ? { ...p, estado_id: data.estado_id, estado_nombre: data.estado_nombre }
+          : p
+      ))
+      // Actualizar en el modal y en caché
+      if (seleccionado?.pedido_id === pedidoId) {
+        const updated = { ...seleccionado, estado_id: data.estado_id, estado_nombre: data.estado_nombre }
+        setSeleccionado(updated)
+        setDetalleCache(c => ({ ...c, [pedidoId]: updated }))
+      }
+    } catch { alert('Error al cambiar el estado') }
+  }
+
   return (
-    <div className={styles.statusSelect} style={{ background: style.bg, borderColor: style.border }}>
-      <select
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        style={{ color: style.color }}
-        className={styles.statusSelectInput}
-      >
-        {ESTADOS.map(e => <option key={e} value={e}>{e}</option>)}
-      </select>
-      <ChevronDown size={12} style={{ color: style.color, flexShrink: 0, pointerEvents: 'none' }} />
+    <div className={styles.container}>
+      <div className={styles.header}>
+        <h2>Pedidos <span className={styles.count}>{total}</span></h2>
+        <div className={styles.filtros}>
+          <div className={styles.searchBox}>
+            <Search size={16} />
+            <input
+              placeholder="Buscar por cliente o #pedido…"
+              value={search}
+              onChange={e => { setSearch(e.target.value); setPage(1) }}
+            />
+          </div>
+          <select
+            value={filtroEst}
+            onChange={e => { setFiltroEst(e.target.value); setPage(1) }}
+          >
+            <option value="">Todos los estados</option>
+            {estados.map(e => <option key={e.estado_id} value={e.estado_id}>{e.nombre}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className={styles.loadingWrap}><div className={styles.spinner} /></div>
+      ) : (
+        <>
+          <div className={styles.tableWrap}>
+            <table className={styles.tabla}>
+              <thead>
+                <tr>
+                  <th>#</th><th>Cliente</th><th>Ciudad</th>
+                  <th>Ítems</th><th>Total</th><th>Fecha</th>
+                  <th>Estado</th><th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pedidos.length === 0 ? (
+                  <tr><td colSpan={8} className={styles.empty}>Sin resultados</td></tr>
+                ) : pedidos.map(p => (
+                  <tr key={p.pedido_id}>
+                    <td className={styles.idCell}>#{p.pedido_id}</td>
+                    <td>
+                      <div className={styles.clienteCell}>
+                        <strong>{p.cliente_nombre}</strong>
+                        <span>{p.cliente_email}</span>
+                      </div>
+                    </td>
+                    <td>{p.ciudad || '—'}</td>
+                    <td className={styles.center}>{p.num_items}</td>
+                    <td className={styles.totalCell}>${parseFloat(p.total).toLocaleString('es-CO')}</td>
+                    <td>{new Date(p.fecha_pedido).toLocaleDateString('es-CO')}</td>
+                    <td>
+                      <select
+                        className={styles.statusSelect}
+                        value={p.estado_id}
+                        style={{ '--color': COLOR_ESTADO[p.estado_nombre] ?? '#888' }}
+                        onChange={e => cambiarEstado(p.pedido_id, Number(e.target.value))}
+                      >
+                        {estados.map(e => <option key={e.estado_id} value={e.estado_id}>{e.nombre}</option>)}
+                      </select>
+                    </td>
+                    <td>
+                      <button className={styles.btnVer} onClick={() => abrirDetalle(p)}>
+                        <Eye size={15} /> Ver
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Paginación */}
+          {pages > 1 && (
+            <div className={styles.paginacion}>
+              <button disabled={page <= 1}    onClick={() => setPage(p => p - 1)}><ChevronLeft  size={16} /></button>
+              <span>Página {page} de {pages}</span>
+              <button disabled={page >= pages} onClick={() => setPage(p => p + 1)}><ChevronRight size={16} /></button>
+            </div>
+          )}
+        </>
+      )}
+
+      {seleccionado && (
+        <ModalDetalle
+          pedido={seleccionado}
+          estados={estados}
+          onCerrar={() => setSeleccionado(null)}
+          onCambiarEstado={cambiarEstado}
+        />
+      )}
     </div>
   )
 }

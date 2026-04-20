@@ -65,7 +65,12 @@ export default function Detalle() {
 
   const handleAddToCart = () => {
     if (!validate()) return
-    addItem(product, parseFloat(ancho), parseFloat(alto))
+    // Preparar el producto con imagen_principal extraída del array de imágenes
+    const productToAdd = {
+      ...product,
+      imagen_principal: product.imagenes?.[0]?.url || product.imagen_principal || null,
+    }
+    addItem(productToAdd, parseFloat(ancho), parseFloat(alto))
     setAdded(true)
     setTimeout(() => setAdded(false), 2500)
     toggleCart()

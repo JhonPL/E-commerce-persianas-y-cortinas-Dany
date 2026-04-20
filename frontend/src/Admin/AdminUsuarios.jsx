@@ -1,158 +1,181 @@
-import { useState } from 'react'
-import { Search, X, ShieldCheck, User, ToggleLeft, ToggleRight } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { useAuth } from '../context/AuthContext'
+import { Search, Users, UserCheck, ShieldCheck, ChevronLeft, ChevronRight } from 'lucide-react'
 import styles from './AdminUsuarios.module.css'
 
-const INITIAL = [
-  { id: 1, nombre: 'Administrador Dany', email: 'admin@cortinasydany.com', rol: 'admin',   auth: 'local',    activo: true,  fecha: '2026-01-15' },
-  { id: 2, nombre: 'María Pérez',        email: 'maria.perez@example.com', rol: 'cliente',  auth: 'local',    activo: true,  fecha: '2026-02-03' },
-  { id: 3, nombre: 'Carlos Rodríguez',   email: 'carlos.rodriguez@example.com', rol: 'cliente', auth: 'local', activo: true, fecha: '2026-02-10' },
-  { id: 4, nombre: 'Laura Gómez',        email: 'laura.gomez@gmail.com',   rol: 'cliente',  auth: 'google',   activo: true,  fecha: '2026-02-18' },
-  { id: 5, nombre: 'Jorge Martínez',     email: 'jorge.m@example.com',     rol: 'cliente',  auth: 'local',    activo: true,  fecha: '2026-03-01' },
-  { id: 6, nombre: 'Ana Torres',         email: 'ana.torres@example.com',  rol: 'cliente',  auth: 'local',    activo: false, fecha: '2026-03-05' },
-]
+const API = import.meta.env.VITE_API_URL
 
-const AUTH_STYLE = {
-  local:     { label: 'Local',  bg: 'rgba(143,194,99,0.1)',  color: '#8fc263' },
-  google:    { label: 'Google', bg: 'rgba(66,133,244,0.12)', color: '#4285F4' },
-  microsoft: { label: 'Microsoft', bg: 'rgba(0,114,198,0.12)', color: '#0072C6' },
+const BADGE_PROVEEDOR = {
+  local:     { label: 'Local',     color: '#6b7280' },
+  google:    { label: 'Google',    color: '#ea4335' },
+  microsoft: { label: 'Microsoft', color: '#0078d4' },
+}
+
+function Avatar({ nombre }) {
+  const letra = nombre?.[0]?.toUpperCase() ?? '?'
+  return <div className={styles.avatar}>{letra}</div>
 }
 
 export default function AdminUsuarios() {
-  const [usuarios, setUsuarios] = useState(INITIAL)
-  const [search, setSearch]     = useState('')
-  const [filter, setFilter]     = useState('Todos')
+  const { token } = useAuth()
+  const [usuarios,  setUsuarios]  = useState([])
+  const [stats,     setStats]     = useState({ total: 0, activos: 0, admins: 0, clientes: 0 })
+  const [loading,   setLoading]   = useState(true)
+  const [search,    setSearch]    = useState('')
+  const [filtroRol, setFiltroRol] = useState('')
+  const [page,      setPage]      = useState(1)
+  const [pages,     setPages]     = useState(1)
+  const [total,     setTotal]     = useState(0)
+  const [toggling,  setToggling]  = useState(null)  // usuario_id en proceso
 
-  const filtered = usuarios.filter(u => {
-    const matchS = u.nombre.toLowerCase().includes(search.toLowerCase()) ||
-                   u.email.toLowerCase().includes(search.toLowerCase())
-    const matchF = filter === 'Todos'
-      ? true : filter === 'Activos'
-      ? u.activo : filter === 'Inactivos'
-      ? !u.activo : u.rol === filter
-    return matchS && matchF
-  })
+  const cargar = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams({ page })
+      if (search)    params.set('search', search)
+      if (filtroRol) params.set('rol', filtroRol)
+      const res  = await fetch(`${API}/admin/usuarios/?${params}`, { headers: { Authorization: `Bearer ${token}` } })
+      const data = await res.json()
+      setUsuarios(data.usuarios ?? [])
+      setStats(data.stats ?? { total: 0, activos: 0, admins: 0, clientes: 0 })
+      setPages(data.pages ?? 1)
+      setTotal(data.total ?? 0)
+    } catch { setUsuarios([]) }
+    finally  { setLoading(false) }
+  }, [token, page, search, filtroRol])
 
-  const toggleActivo = (id) => {
-    setUsuarios(prev => prev.map(u => u.id === id ? { ...u, activo: !u.activo } : u))
-  }
+  useEffect(() => { cargar() }, [cargar])
 
-  const totales = {
-    total: usuarios.length,
-    activos: usuarios.filter(u => u.activo).length,
-    admin: usuarios.filter(u => u.rol === 'admin').length,
-    clientes: usuarios.filter(u => u.rol === 'cliente').length,
+  const toggleActivo = async (usuario) => {
+    if (usuario.rol === 'admin') return   // protección
+    setToggling(usuario.usuario_id)
+    try {
+      const res = await fetch(`${API}/admin/usuarios/${usuario.usuario_id}/activo/`, {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body:    JSON.stringify({ activo: !usuario.activo }),
+      })
+      if (!res.ok) throw new Error()
+      setUsuarios(us => us.map(u =>
+        u.usuario_id === usuario.usuario_id ? { ...u, activo: !u.activo } : u
+      ))
+    } catch { alert('Error al actualizar el usuario') }
+    finally { setToggling(null) }
   }
 
   return (
-    <div className={styles.page}>
-
-      <div className={styles.pageHeader}>
-        <div>
-          <h1 className={styles.pageTitle}>Usuarios</h1>
-          <p className={styles.pageSub}>{totales.total} usuarios registrados</p>
-        </div>
-      </div>
-
-      {/* Resumen rápido */}
+    <div className={styles.container}>
+      {/* Stats */}
       <div className={styles.statsRow}>
-        {[
-          { label: 'Total',    value: totales.total    },
-          { label: 'Activos',  value: totales.activos  },
-          { label: 'Admins',   value: totales.admin    },
-          { label: 'Clientes', value: totales.clientes },
-        ].map(s => (
-          <div key={s.label} className={styles.statCard}>
-            <span className={styles.statValue}>{s.value}</span>
-            <span className={styles.statLabel}>{s.label}</span>
-          </div>
-        ))}
+        <div className={styles.statCard}>
+          <Users size={20} />
+          <div><strong>{stats.total}</strong><span>Total</span></div>
+        </div>
+        <div className={styles.statCard}>
+          <UserCheck size={20} />
+          <div><strong>{stats.activos}</strong><span>Activos</span></div>
+        </div>
+        <div className={styles.statCard} style={{ '--c': '#8fc263' }}>
+          <ShieldCheck size={20} />
+          <div><strong>{stats.admins}</strong><span>Admins</span></div>
+        </div>
+        <div className={styles.statCard}>
+          <Users size={20} />
+          <div><strong>{stats.clientes}</strong><span>Clientes</span></div>
+        </div>
       </div>
 
       {/* Filtros */}
-      <div className={styles.filters}>
-        <div className={styles.searchWrapper}>
-          <Search size={15} className={styles.searchIcon} />
-          <input type="text" placeholder="Buscar por nombre o correo..."
-            value={search} onChange={e => setSearch(e.target.value)}
-            className={styles.searchInput} />
-          {search && <button className={styles.clearSearch} onClick={() => setSearch('')}><X size={14} /></button>}
-        </div>
-        <div className={styles.pills}>
-          {['Todos','Activos','Inactivos','admin','cliente'].map(f => (
-            <button key={f}
-              className={`${styles.pill} ${filter === f ? styles.pillActive : ''}`}
-              onClick={() => setFilter(f)}
-            >
-              {f.charAt(0).toUpperCase() + f.slice(1)}
-            </button>
-          ))}
+      <div className={styles.header}>
+        <h2>Usuarios <span className={styles.count}>{total}</span></h2>
+        <div className={styles.filtros}>
+          <div className={styles.searchBox}>
+            <Search size={16} />
+            <input
+              placeholder="Buscar nombre o email…"
+              value={search}
+              onChange={e => { setSearch(e.target.value); setPage(1) }}
+            />
+          </div>
+          <select
+            value={filtroRol}
+            onChange={e => { setFiltroRol(e.target.value); setPage(1) }}
+          >
+            <option value="">Todos los roles</option>
+            <option value="admin">Admin</option>
+            <option value="cliente">Cliente</option>
+          </select>
         </div>
       </div>
 
-      {/* Tabla */}
-      <div className={styles.tableCard}>
-        <div className={styles.tableWrapper}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>Usuario</th>
-                <th>Rol</th>
-                <th>Auth</th>
-                <th>Registro</th>
-                <th>Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 && (
-                <tr><td colSpan={5} className={styles.empty}>Sin resultados</td></tr>
-              )}
-              {filtered.map(u => (
-                <tr key={u.id}>
-                  <td>
-                    <div className={styles.userCell}>
-                      <div className={`${styles.avatar} ${u.rol === 'admin' ? styles.avatarAdmin : ''}`}>
-                        {u.nombre.charAt(0).toUpperCase()}
-                      </div>
-                      <div className={styles.userInfo}>
-                        <span className={styles.userName}>{u.nombre}</span>
-                        <span className={styles.userEmail}>{u.email}</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <span className={`${styles.rolBadge} ${u.rol === 'admin' ? styles.rolAdmin : styles.rolCliente}`}>
-                      {u.rol === 'admin' ? <ShieldCheck size={11} /> : <User size={11} />}
-                      {u.rol}
-                    </span>
-                  </td>
-                  <td>
-                    <span
-                      className={styles.authBadge}
-                      style={{ background: AUTH_STYLE[u.auth]?.bg, color: AUTH_STYLE[u.auth]?.color }}
-                    >
-                      {AUTH_STYLE[u.auth]?.label}
-                    </span>
-                  </td>
-                  <td className={styles.tdMuted}>{u.fecha}</td>
-                  <td>
-                    <button
-                      className={styles.toggleBtn}
-                      onClick={() => u.rol !== 'admin' && toggleActivo(u.id)}
-                      disabled={u.rol === 'admin'}
-                      title={u.rol === 'admin' ? 'No se puede desactivar al admin' : u.activo ? 'Desactivar' : 'Activar'}
-                    >
-                      {u.activo
-                        ? <><ToggleRight size={20} color="#8fc263" /><span className={styles.toggleOn}>Activo</span></>
-                        : <><ToggleLeft  size={20} color="#555"    /><span className={styles.toggleOff}>Inactivo</span></>
-                      }
-                    </button>
-                  </td>
+      {loading ? (
+        <div className={styles.loadingWrap}><div className={styles.spinner} /></div>
+      ) : (
+        <>
+          <div className={styles.tableWrap}>
+            <table className={styles.tabla}>
+              <thead>
+                <tr>
+                  <th>Usuario</th><th>Rol</th><th>Proveedor</th>
+                  <th>Registro</th><th>Activo</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+              </thead>
+              <tbody>
+                {usuarios.length === 0 ? (
+                  <tr><td colSpan={5} className={styles.empty}>Sin resultados</td></tr>
+                ) : usuarios.map(u => (
+                  <tr key={u.usuario_id}>
+                    <td>
+                      <div className={styles.userCell}>
+                        <Avatar nombre={u.nombre} />
+                        <div>
+                          <strong>{u.nombre}</strong>
+                          <span>{u.email}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span className={`${styles.rolBadge} ${u.rol === 'admin' ? styles.rolAdmin : styles.rolCliente}`}>
+                        {u.rol === 'admin' ? <ShieldCheck size={12} /> : <Users size={12} />}
+                        {u.rol}
+                      </span>
+                    </td>
+                    <td>
+                      <span
+                        className={styles.proveedorBadge}
+                        style={{ background: `${BADGE_PROVEEDOR[u.proveedor_auth]?.color ?? '#555'}22`,
+                                 color:      BADGE_PROVEEDOR[u.proveedor_auth]?.color ?? '#aaa',
+                                 borderColor: `${BADGE_PROVEEDOR[u.proveedor_auth]?.color ?? '#555'}55` }}
+                      >
+                        {BADGE_PROVEEDOR[u.proveedor_auth]?.label ?? u.proveedor_auth}
+                      </span>
+                    </td>
+                    <td>{new Date(u.fecha_registro).toLocaleDateString('es-CO')}</td>
+                    <td>
+                      <button
+                        className={`${styles.toggle} ${u.activo ? styles.toggleOn : styles.toggleOff}`}
+                        disabled={u.rol === 'admin' || toggling === u.usuario_id}
+                        onClick={() => toggleActivo(u)}
+                        title={u.rol === 'admin' ? 'No se puede desactivar un admin' : (u.activo ? 'Desactivar' : 'Activar')}
+                      >
+                        <span className={styles.toggleKnob} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {pages > 1 && (
+            <div className={styles.paginacion}>
+              <button disabled={page <= 1}    onClick={() => setPage(p => p - 1)}><ChevronLeft  size={16} /></button>
+              <span>Página {page} de {pages}</span>
+              <button disabled={page >= pages} onClick={() => setPage(p => p + 1)}><ChevronRight size={16} /></button>
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }
