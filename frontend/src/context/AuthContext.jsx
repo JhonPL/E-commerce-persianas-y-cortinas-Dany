@@ -141,6 +141,66 @@ export function AuthProvider({ children }) {
       return { success: false, error: err.message }
     }
   }, [login])
+  const googleAuth = useCallback(async (credential) => {
+    dispatch({ type: 'AUTH_START' })
+    try {
+      const res = await fetch(`${API_URL}/auth/google/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(extraerError(data))
+      }
+
+      const user = {
+        usuario_id: data.usuario.usuario_id,
+        nombre:     data.usuario.nombre,
+        email:      data.usuario.email,
+        rol:        data.usuario.rol_nombre,
+      }
+
+      dispatch({ type: 'AUTH_SUCCESS', payload: { user, token: data.access } })
+      return { success: true, rol: user.rol }
+
+    } catch (err) {
+      dispatch({ type: 'AUTH_ERROR', payload: err.message })
+      return { success: false, error: err.message }
+    }
+  }, [])
+  const googleExchange = useCallback(async (code, redirectUri) => {
+    dispatch({ type: 'AUTH_START' })
+    try {
+      const res = await fetch(`${API_URL}/auth/google/exchange/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, redirect_uri: redirectUri }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(extraerError(data))
+      }
+
+      const user = {
+        usuario_id: data.usuario.usuario_id,
+        nombre:     data.usuario.nombre,
+        email:      data.usuario.email,
+        rol:        data.usuario.rol_nombre,
+      }
+
+      dispatch({ type: 'AUTH_SUCCESS', payload: { user, token: data.access } })
+      return { success: true, rol: user.rol }
+
+    } catch (err) {
+      dispatch({ type: 'AUTH_ERROR', payload: err.message })
+      return { success: false, error: err.message }
+    }
+  }, [])
 
   const logout     = useCallback(() => {
     dispatch({ type: 'LOGOUT' })
@@ -149,7 +209,7 @@ export function AuthProvider({ children }) {
   const clearError = useCallback(() => dispatch({ type: 'AUTH_ERROR', payload: null }), [])
 
   return (
-    <AuthContext.Provider value={{ ...state, login, register, logout, clearError }}>
+    <AuthContext.Provider value={{ ...state, login, register, googleAuth, googleExchange, logout, clearError }}>
       {children}
     </AuthContext.Provider>
   )
@@ -161,3 +221,4 @@ export const useAuth = () => {
   if (!ctx) throw new Error('useAuth debe usarse dentro de AuthProvider')
   return ctx
 }
+

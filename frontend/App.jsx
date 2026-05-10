@@ -11,6 +11,7 @@ import Detalle from './src/pages/Detalle/Detalle'
 import Contacto from './src/pages/Contacto/Contacto'
 import MisPedidos from './src/pages/MisPedidos/MisPedidos'
 import Auth from './src/Auth/Auth'
+import GoogleCallback from './src/Auth/GoogleCallback'
 import AdminLayout from './src/Admin/AdminLayout'
 import AdminDashboard from './src/Admin/AdminDashboard'
 import AdminProductos from './src/Admin/AdminProductos'
@@ -65,6 +66,8 @@ export default function App() {
  
             {/* Auth */}
             <Route path="/login" element={<Auth />} />
+            <Route path="/oauth/google" element={<GoogleCallback />} />
+            
  
             {/* Panel admin */}
             <Route path="/admin" element={
@@ -86,3 +89,6 @@ export default function App() {
     </BrowserRouter>
   )
 }
+
+
+
