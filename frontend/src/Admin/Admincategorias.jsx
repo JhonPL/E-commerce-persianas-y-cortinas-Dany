@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Plus, Pencil, Trash2, X, Check, Search, Tag } from 'lucide-react'
+import { API_URL } from '../config/api'
 import styles from './AdminCategorias.module.css'
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api/v1'
 
 function getToken() {
   return localStorage.getItem('token') || ''

@@ -3,10 +3,10 @@ import {
   Plus, Pencil, Trash2, Search, X, Check,
   ImageOff, Upload, Loader, Link, Star, StarOff, RefreshCw
 } from 'lucide-react'
+import { API_URL } from '../config/api'
 import styles from './AdminProductos.module.css'
 
 /* ── Config ───────────────────────────────────────────────*/
-const API_URL       = import.meta.env.VITE_API_URL            || 'http://127.0.0.1:8000/api/v1'
 const CLOUD_NAME    = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME    || 'tu_cloud_name'
 const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'cortinas_dany'
 const UPLOAD_URL    = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`

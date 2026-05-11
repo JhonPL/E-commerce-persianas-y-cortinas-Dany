@@ -1,8 +1,5 @@
 import { createContext, useContext, useReducer, useCallback, useEffect } from 'react'
-
-// URL base del backend — agregar al .env del frontend:
-// VITE_API_URL=http://127.0.0.1:8000/api/v1
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api/v1'
+import { API_URL } from '../config/api'
 
 // Convierte los errores de DRF a un mensaje legible
 function extraerError(data) {
