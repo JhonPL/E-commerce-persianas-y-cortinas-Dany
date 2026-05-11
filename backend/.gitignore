@@ -1,6 +1,31 @@
+# Entornos virtuales
 venv/
 venv-django/
+env/
+
+# Python
 __pycache__/
-db.sqlite3
 *.pyc
+*.pyo
+*.pyd
+
+# Base de datos
+db.sqlite3
+*.sqlite3
+
+# Variables de entorno
 .env
+
+# Archivos de Django
+*.log
+
+# Archivos de VSCode
+.vscode/
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# Carpetas de compilación
+build/
+dist/

@@ -18,6 +18,7 @@ dist.log
 
 # ==================== DEPENDENCIAS Y BUILD ====================
 node_modules
+.vite
 dist
 dist-ssr
 *.local
