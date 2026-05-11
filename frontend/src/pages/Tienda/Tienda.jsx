@@ -2,9 +2,8 @@ import { useState, useMemo, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Search, SlidersHorizontal, X, Loader } from 'lucide-react'
 import ProductCard from '../../components/ProductCard/ProductCard'
+import { API_URL } from '../../config/api'
 import styles from './Tienda.module.css'
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api/v1'
 
 const ORDEN_OPTS = [
   { value: 'default',     label: 'Relevancia' },

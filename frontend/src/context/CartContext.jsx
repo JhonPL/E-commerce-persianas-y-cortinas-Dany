@@ -1,8 +1,7 @@
 // frontend/src/context/CartContext.jsx
 import { createContext, useContext, useReducer, useCallback, useEffect } from 'react'
 import { useAuth } from './AuthContext'
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api/v1'
+import { API_URL } from '../config/api'
 
 // ─── Estado inicial ───────────────────────────────────────────────────────────
 const initialState = {

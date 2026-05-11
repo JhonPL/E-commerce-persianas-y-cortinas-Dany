@@ -2,10 +2,9 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { Package, ChevronDown, ChevronUp, ShoppingBag, MapPin } from 'lucide-react'
+import { API_URL } from '../../config/api'
 import styles from './MisPedidos.module.css'
 
-// Fallback para desarrollo local si VITE_API_URL no está definida en .env
-const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api/v1'
 
 // Mapa de estados del pedido: nombre → { step, color }
 // Los nombres deben coincidir exactamente con EstadoPedido.nombre en el backend
@@ -155,7 +154,7 @@ export default function MisPedidos() {
         setLoading(true)
         setError(null)
 
-        const res = await fetch(`${API}/pedidos/`, {
+        const res = await fetch(`${API_URL}/pedidos/`, {
           headers: { Authorization: `Bearer ${token}` },
         })
 

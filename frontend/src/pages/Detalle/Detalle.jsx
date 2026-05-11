@@ -2,9 +2,8 @@ import { useState, useMemo, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { ChevronLeft, ShoppingCart, AlertCircle, Loader, ImageOff } from 'lucide-react'
 import { useCart } from '../../context/CartContext'
+import { API_URL } from '../../config/api'
 import styles from './Detalle.module.css'
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api/v1'
 
 const formatCOP = (n) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)

@@ -2,9 +2,8 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import Hero from '../../components/Hero/Hero'
 import ProductCard from '../../components/ProductCard/ProductCard'
+import { API_URL } from '../../config/api'
 import styles from './Home.module.css'
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api/v1'
 
 // Imágenes por defecto para las cards de categorías
 const CAT_IMGS = {
