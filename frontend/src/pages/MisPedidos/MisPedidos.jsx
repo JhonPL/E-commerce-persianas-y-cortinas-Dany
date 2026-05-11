@@ -1,55 +1,41 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Package, ChevronDown, ChevronUp, ShoppingBag } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
+import { Package, ChevronDown, ChevronUp, ShoppingBag, MapPin } from 'lucide-react'
+import { API_URL } from '../../config/api'
 import styles from './MisPedidos.module.css'
 
-// Mock — reemplazar por fetch /api/mis-pedidos cuando el backend esté listo
-const MOCK_PEDIDOS = [
-  {
-    id: 'PED-003',
-    fecha: '2026-03-09',
-    total: 215000,
-    estado: 'Pendiente de preparación',
-    items: [
-      { producto: 'Panel Japonés', ancho: 180, alto: 240, area: 0.432, precio_m2: 250000, total: 108000 },
-    ],
-  },
-  {
-    id: 'PED-001',
-    fecha: '2026-03-10',
-    total: 320000,
-    estado: 'Enviado',
-    items: [
-      { producto: 'Cortina Blackout',   ancho: 200, alto: 250, area: 0.5,  precio_m2: 160000, total: 80000 },
-      { producto: 'Persiana Enrollable',ancho: 150, alto: 160, area: 0.24, precio_m2: 180000, total: 43200 },
-    ],
-  },
-]
 
-const ESTADO_STYLE = {
-  'Pendiente de preparación': { color: '#ffc107', bg: 'rgba(255,193,7,0.1)',  border: 'rgba(255,193,7,0.2)'  },
-  'Preparado':                { color: '#cfe795', bg: 'rgba(207,231,149,0.1)',border: 'rgba(207,231,149,0.2)' },
-  'Enviado':                  { color: '#8fc263', bg: 'rgba(143,194,99,0.1)', border: 'rgba(143,194,99,0.2)'  },
+// Mapa de estados del pedido: nombre → { step, color }
+// Los nombres deben coincidir exactamente con EstadoPedido.nombre en el backend
+const ESTADOS = {
+  'Pendiente de preparación': { step: 1, color: '#f59e0b' },
+  'Preparado':                { step: 2, color: '#3b82f6' },
+  'Enviado':                  { step: 3, color: '#8fc263' },
 }
 
-// Barra de progreso por estado
-const PASOS = ['Pendiente de preparación', 'Preparado', 'Enviado']
+const PASOS_LABEL = [
+  'Pendiente de preparación',
+  'Preparado',
+  'Enviado',
+]
 
-function BarraEstado({ estado }) {
-  const idx = PASOS.indexOf(estado)
+/* ── Barra de progreso ────────────────────────────────────── */
+function BarraProgreso({ estadoNombre }) {
+  const paso = ESTADOS[estadoNombre]?.step ?? 1
+
   return (
-    <div className={styles.progressBar}>
-      {PASOS.map((paso, i) => (
-        <div key={paso} className={styles.progressStep}>
-          <div className={`${styles.progressDot} ${i <= idx ? styles.progressDotActive : ''}`}>
-            {i <= idx && <span className={styles.progressCheck}>✓</span>}
+    <div className={styles.progreso}>
+      {PASOS_LABEL.map((p, i) => (
+        <div key={p} className={styles.pasoWrap}>
+          <div className={`${styles.circulo} ${i < paso ? styles.activo : ''}`}>
+            {i < paso ? '✓' : i + 1}
           </div>
-          <span className={`${styles.progressLabel} ${i <= idx ? styles.progressLabelActive : ''}`}>
-            {paso}
+          <span className={`${styles.pasoLabel} ${i < paso ? styles.activoLabel : ''}`}>
+            {p}
           </span>
-          {i < PASOS.length - 1 && (
-            <div className={`${styles.progressLine} ${i < idx ? styles.progressLineActive : ''}`} />
+          {i < PASOS_LABEL.length - 1 && (
+            <div className={`${styles.linea} ${i + 1 < paso ? styles.lineaActiva : ''}`} />
           )}
         </div>
       ))}
@@ -57,66 +43,97 @@ function BarraEstado({ estado }) {
   )
 }
 
-function PedidoCard({ pedido }) {
-  const [open, setOpen] = useState(false)
-  const estilo = ESTADO_STYLE[pedido.estado] || {}
+/* ── Tarjeta de un pedido ─────────────────────────────────── */
+function TarjetaPedido({ pedido }) {
+  const [abierto, setAbierto] = useState(false)
+
+  const fecha = new Date(pedido.fecha_pedido).toLocaleDateString('es-CO', {
+    year: 'numeric', month: 'long', day: 'numeric',
+  })
 
   return (
-    <div className={styles.card}>
-      {/* Cabecera */}
-      <div className={styles.cardHeader} onClick={() => setOpen(v => !v)}>
-        <div className={styles.cardHeaderLeft}>
-          <Package size={18} className={styles.cardIcon} />
-          <div>
-            <span className={styles.cardId}>{pedido.id}</span>
-            <span className={styles.cardFecha}>{pedido.fecha}</span>
-          </div>
+    <div className={styles.tarjeta}>
+      {/* Encabezado clickeable */}
+      <button className={styles.encabezado} onClick={() => setAbierto(a => !a)}>
+        <div className={styles.encabezadoLeft}>
+          <Package size={18} />
+          <span className={styles.pedidoId}>Pedido #{pedido.pedido_id}</span>
+          <span className={styles.fecha}>{fecha}</span>
         </div>
-        <div className={styles.cardHeaderRight}>
+        <div className={styles.encabezadoRight}>
+          <span className={styles.total}>
+            ${parseFloat(pedido.total).toLocaleString('es-CO')}
+          </span>
           <span
-            className={styles.estadoBadge}
-            style={{ color: estilo.color, background: estilo.bg, borderColor: estilo.border }}
+            className={styles.badge}
+            style={{ background: ESTADOS[pedido.estado_nombre]?.color ?? '#666' }}
           >
-            {pedido.estado}
+            {pedido.estado_nombre}
           </span>
-          <span className={styles.cardTotal}>
-            ${pedido.total.toLocaleString('es-CO')}
-          </span>
-          {open ? <ChevronUp size={16} className={styles.chevron} /> : <ChevronDown size={16} className={styles.chevron} />}
+          {abierto ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </div>
-      </div>
+      </button>
 
-      {/* Detalle expandible */}
-      {open && (
-        <div className={styles.cardBody}>
-          <BarraEstado estado={pedido.estado} />
+      {/* Detalle colapsable */}
+      {abierto && (
+        <div className={styles.detalle}>
+          <BarraProgreso estadoNombre={pedido.estado_nombre} />
 
-          <table className={styles.itemsTable}>
-            <thead>
-              <tr>
-                <th>Producto</th>
-                <th>Medidas</th>
-                <th>Área m²</th>
-                <th>Precio/m²</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pedido.items.map((item, i) => (
-                <tr key={i}>
-                  <td className={styles.tdNombre}>{item.producto}</td>
-                  <td className={styles.tdMuted}>{item.ancho} × {item.alto} cm</td>
-                  <td>{item.area} m²</td>
-                  <td>${item.precio_m2.toLocaleString('es-CO')}</td>
-                  <td className={styles.tdGreen}>${item.total.toLocaleString('es-CO')}</td>
+          {pedido.ciudad && (
+            <p className={styles.ciudad}>
+              <MapPin size={14} /> Entrega en: {pedido.ciudad}
+            </p>
+          )}
+
+          {/* Tabla de ítems — viene de PedidoDetalleSerializer */}
+          {(pedido.detalles || []).length > 0 ? (
+            <table className={styles.tabla}>
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th>Medidas</th>
+                  <th>Área</th>
+                  <th>$/m²</th>
+                  <th>Cant.</th>
+                  <th>Total</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {pedido.detalles.map(d => (
+                  <tr key={d.detalle_id}>
+                    <td>
+                      <div className={styles.productoCell}>
+                        {d.imagen_principal && (
+                          <img
+                            src={d.imagen_principal}
+                            alt={d.nombre}
+                            className={styles.thumb}
+                            onError={e => { e.target.style.display = 'none' }}
+                          />
+                        )}
+                        <span>{d.nombre}</span>
+                      </div>
+                    </td>
+                    <td>{d.ancho_cm} × {d.alto_cm} cm</td>
+                    <td>{parseFloat(d.area_m2).toFixed(2)} m²</td>
+                    <td>${parseFloat(d.precio_m2).toLocaleString('es-CO')}</td>
+                    <td>{d.cantidad}</td>
+                    <td className={styles.tdTotal}>
+                      ${parseFloat(d.precio_total).toLocaleString('es-CO')}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p style={{ color: '#888', fontSize: '0.85rem' }}>
+              Sin ítems registrados.
+            </p>
+          )}
 
-          <div className={styles.totalRow}>
-            <span className={styles.totalLabel}>Total del pedido</span>
-            <span className={styles.totalValue}>${pedido.total.toLocaleString('es-CO')}</span>
+          <div className={styles.resumen}>
+            <span>Total del pedido</span>
+            <strong>${parseFloat(pedido.total).toLocaleString('es-CO')}</strong>
           </div>
         </div>
       )}
@@ -124,31 +141,87 @@ function PedidoCard({ pedido }) {
   )
 }
 
+/* ── Página principal ─────────────────────────────────────── */
 export default function MisPedidos() {
-  const { user } = useAuth()
+  const { token } = useAuth()
+  const [pedidos, setPedidos] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error,   setError]   = useState(null)
+
+  useEffect(() => {
+    const cargar = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+
+        const res = await fetch(`${API_URL}/pedidos/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+
+        if (!res.ok) {
+          throw new Error(`Error ${res.status}: no se pudieron cargar los pedidos.`)
+        }
+
+        const data = await res.json()
+        // El backend devuelve { pedidos: [...], total: N }
+        setPedidos(data.pedidos ?? [])
+      } catch (err) {
+        setError(err.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (token) {
+      cargar()
+    }
+  }, [token])
+
+  /* ── Estados de la UI ── */
+  if (loading) {
+    return (
+      <div className={styles.centered} style={{ paddingTop: '80px' }}>
+        <div className={styles.spinner} />
+        <p>Cargando tus pedidos…</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className={styles.centered} style={{ paddingTop: '80px' }}>
+        <p className={styles.errorMsg}>{error}</p>
+        <Link to="/tienda" className={styles.btnTienda} style={{ marginTop: '1rem' }}>
+          Ir a la tienda
+        </Link>
+      </div>
+    )
+  }
+
+  if (pedidos.length === 0) {
+    return (
+      <div className={styles.vacio} style={{ paddingTop: '80px' }}>
+        <ShoppingBag size={64} strokeWidth={1} />
+        <h2>Aún no tienes pedidos</h2>
+        <p>Cuando realices una compra, aparecerá aquí el historial.</p>
+        <Link to="/tienda" className={styles.btnTienda}>
+          Ver catálogo
+        </Link>
+      </div>
+    )
+  }
 
   return (
-    <div className={styles.page}>
-      <div className={styles.inner}>
-
-        <div className={styles.pageHeader}>
-          <h1 className={styles.pageTitle}>Mis pedidos</h1>
-          <p className={styles.pageSub}>Hola, <strong>{user?.nombre?.split(' ')[0]}</strong> — aquí están todos tus pedidos.</p>
-        </div>
-
-        {MOCK_PEDIDOS.length === 0 ? (
-          <div className={styles.empty}>
-            <ShoppingBag size={52} className={styles.emptyIcon} />
-            <h2 className={styles.emptyTitle}>Aún no tienes pedidos</h2>
-            <p className={styles.emptySub}>Cuando realices tu primera compra aparecerá aquí.</p>
-            <Link to="/tienda" className={styles.btnPrimary}>Ir a la tienda</Link>
-          </div>
-        ) : (
-          <div className={styles.list}>
-            {MOCK_PEDIDOS.map(p => <PedidoCard key={p.id} pedido={p} />)}
-          </div>
-        )}
+    <main className={styles.container} style={{ paddingTop: 'calc(64px + 2rem)' }}>
+      <h1 className={styles.titulo}>Mis Pedidos</h1>
+      <p className={styles.subtitulo}>
+        {pedidos.length} pedido{pedidos.length !== 1 ? 's' : ''} realizados
+      </p>
+      <div className={styles.lista}>
+        {pedidos.map(p => (
+          <TarjetaPedido key={p.pedido_id} pedido={p} />
+        ))}
       </div>
-    </div>
+    </main>
   )
 }

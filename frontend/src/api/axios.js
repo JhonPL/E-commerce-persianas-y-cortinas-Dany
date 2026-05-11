@@ -1,8 +1,9 @@
-import axios  from "axios";
+import axios from "axios";
+import { API_URL } from "../config/api";
 
 const api = axios.create({
 
-    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1',
+    baseURL: API_URL,
     headers: {
         'Content-Type': 'application/json',
     },
@@ -35,7 +36,7 @@ api.interceptors.response.use (
 
             try {
                 const refreshResponse = localStorage.getItem('refresh_token')
-                const {data} = await axios.post('http://127.0.0.1:8000/api/v1/auth/token/refresh/', {refreshResponse})
+                const { data } = await axios.post(`${API_URL}/auth/token/refresh/`, { refreshResponse })
 
                 localStorage.setItem('access_token', data.access)
 
@@ -46,7 +47,7 @@ api.interceptors.response.use (
         localStorage.removeItem('access_token')
         localStorage.removeItem('refresh_token')
         localStorage.removeItem('usuario')
-        window.location.href = '/login'
+        window.location.href = '/'
       }
     }
     return Promise.reject(error)

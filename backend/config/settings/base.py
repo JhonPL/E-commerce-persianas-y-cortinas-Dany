@@ -165,6 +165,7 @@ DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 # ─────────────────────────────────────────
 SOCIAL_AUTH_GOOGLE_OAUTH2_KEY    = env('GOOGLE_CLIENT_ID', default='')
 SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = env('GOOGLE_CLIENT_SECRET', default='')
+GOOGLE_OAUTH_ALLOWED_REDIRECT_URIS = env.list('GOOGLE_OAUTH_ALLOWED_REDIRECT_URIS', default=['http://localhost:5173/oauth/google'])
 
 # ─────────────────────────────────────────
 # VALIDACIÓN DE CONTRASEÑAS

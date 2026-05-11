@@ -51,3 +51,7 @@
   transition: background 0.3s ease, transform 0.3s ease;
 }
 .checkoutBtn:hover { background: #cfe795; transform: translateY(-1px); }
+.itemCantidad { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.cantidadBtn { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; background: rgba(143, 194, 99, 0.1); border: 1px solid rgba(143, 194, 99, 0.2); border-radius: 3px; color: #8fc263; cursor: pointer; transition: background 0.3s, color 0.3s; }
+.cantidadBtn:hover { background: rgba(143, 194, 99, 0.2); color: #cfe795; }
+.cantidadValue { font-size: 0.85rem; font-weight: 600; color: #f7efd3; min-width: 24px; text-align: center; }

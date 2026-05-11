@@ -1,51 +1,24 @@
-import { useState } from 'react'
+
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 import {
   ShoppingBag, Package, Users, TrendingUp,
   AlertTriangle, CheckCircle, Clock, ArrowRight
 } from 'lucide-react'
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid,
+  XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, AreaChart, Area
 } from 'recharts'
 import styles from './Dashboard.module.css'
 
-// ── Mock data (reemplazar por fetch /api/admin/dashboard) ─
-const METRICS = [
-  { label: 'Pedidos este mes',  value: 38,          delta: '+12%', icon: ShoppingBag, color: '#8fc263' },
-  { label: 'Ingresos (COP)',    value: '$4.280.000', delta: '+8%',  icon: TrendingUp,  color: '#cfe795' },
-  { label: 'Productos activos', value: 10,           delta: '0',    icon: Package,     color: '#8fc263' },
-  { label: 'Clientes',          value: 24,           delta: '+3',   icon: Users,       color: '#cfe795' },
-]
+const API = import.meta.env.VITE_API_URL
 
-const VENTAS_MES = [
-  { mes: 'Oct', ventas: 1200000 },
-  { mes: 'Nov', ventas: 1950000 },
-  { mes: 'Dic', ventas: 3100000 },
-  { mes: 'Ene', ventas: 2400000 },
-  { mes: 'Feb', ventas: 3600000 },
-  { mes: 'Mar', ventas: 4280000 },
-]
-
-const PEDIDOS_RECIENTES = [
-  { id: 'PED-001', cliente: 'María Pérez',      total: '$320.000',  estado: 'Enviado',                 fecha: '10 mar' },
-  { id: 'PED-002', cliente: 'Carlos Rodríguez', total: '$780.000',  estado: 'Preparado',               fecha: '10 mar' },
-  { id: 'PED-003', cliente: 'Laura Gómez',      total: '$215.000',  estado: 'Pendiente de preparación',fecha: '09 mar' },
-  { id: 'PED-004', cliente: 'Jorge Martínez',   total: '$540.000',  estado: 'Enviado',                 fecha: '09 mar' },
-  { id: 'PED-005', cliente: 'Ana Torres',        total: '$190.000',  estado: 'Pendiente de preparación',fecha: '08 mar' },
-]
-
-const TOP_PRODUCTOS = [
-  { nombre: 'Persiana Zebra',     ventas: 14, ingresos: '$2.800.000' },
-  { nombre: 'Cortina Blackout',   ventas: 11, ingresos: '$1.760.000' },
-  { nombre: 'Persiana Enrollable',ventas:  8, ingresos: '$1.440.000' },
-  { nombre: 'Panel Japonés',      ventas:  5, ingresos: '$1.250.000' },
-]
-
-const ALERTAS = [
-  { tipo: 'warning', msg: '3 pedidos llevan más de 48h en "Pendiente de preparación"' },
-  { tipo: 'info',    msg: 'El producto "Riel de Aluminio Doble" no tiene imagen principal' },
-  { tipo: 'success', msg: '5 pedidos completados esta semana sin incidencias' },
+const METRIC_CONFIG = [
+  { key: 'pedidos_mes', icon: ShoppingBag, color: '#8fc263' },
+  { key: 'ingresos_mes', icon: TrendingUp, color: '#cfe795' },
+  { key: 'productos_activos', icon: Package, color: '#8fc263' },
+  { key: 'clientes', icon: Users, color: '#cfe795' },
 ]
 
 const ESTADO_COLORS = {
@@ -60,63 +33,142 @@ const ALERTA_ICONS = {
   success: <CheckCircle   size={15} color="#cfe795" />,
 }
 
-// Formatea eje Y en millones
-const fmtY = (v) => v >= 1000000 ? `$${(v/1000000).toFixed(1)}M` : `$${(v/1000).toFixed(0)}K`
-
 export default function AdminDashboard() {
+  const { token } = useAuth()
+  const [data, setData] = useState({
+    periodo_label: '',
+    metrics: {},
+    ventas_mes: [],
+    pedidos_recientes: [],
+    top_productos: [],
+    alertas: [],
+  })
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
+
+  const formatCop = useMemo(() => new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    maximumFractionDigits: 0,
+  }), [])
+
+  useEffect(() => {
+    const cargar = async () => {
+      setLoading(true)
+      setError(false)
+      try {
+        const res = await fetch(`${API}/admin/dashboard/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!res.ok) throw new Error('Respuesta no OK')
+        const payload = await res.json()
+        setData({
+          periodo_label: payload.periodo_label ?? '',
+          metrics: payload.metrics ?? {},
+          ventas_mes: payload.ventas_mes ?? [],
+          pedidos_recientes: payload.pedidos_recientes ?? [],
+          top_productos: payload.top_productos ?? [],
+          alertas: payload.alertas ?? [],
+        })
+      } catch {
+        setError(true)
+        setData({
+          periodo_label: '',
+          metrics: {},
+          ventas_mes: [],
+          pedidos_recientes: [],
+          top_productos: [],
+          alertas: [],
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (token) {
+      cargar()
+    } else {
+      setLoading(false)
+      setError(true)
+    }
+  }, [token])
+
+  const fmtY = (v) => v >= 1000000 ? `$${(v / 1000000).toFixed(1)}M` : `$${(v / 1000).toFixed(0)}K`
+
+  const renderMetricValue = (key, value) => {
+    if (key === 'ingresos_mes') return formatCop.format(value || 0)
+    return value ?? 0
+  }
+
   return (
     <div className={styles.page}>
 
-      {/* ── Encabezado ──────────────────────────────────── */}
+      {/* Encabezado */}
       <div className={styles.pageHeader}>
         <div>
           <h1 className={styles.pageTitle}>Dashboard</h1>
-          <p className={styles.pageSub}>Resumen general — Marzo 2026</p>
+          <p className={styles.pageSub}>
+            Resumen general{data.periodo_label ? ` — ${data.periodo_label}` : ''}
+          </p>
         </div>
       </div>
 
-      {/* ── Alertas ─────────────────────────────────────── */}
-      <div className={styles.alertas}>
-        {ALERTAS.map((a, i) => (
-          <div key={i} className={`${styles.alerta} ${styles['alerta_' + a.tipo]}`}>
-            {ALERTA_ICONS[a.tipo]}
-            <span>{a.msg}</span>
+      {error && !loading && (
+        <div className={styles.alertas}>
+          <div className={`${styles.alerta} ${styles.alerta_warning}`}>
+            <AlertTriangle size={15} color="#ffc107" />
+            <span>No se pudo cargar el dashboard. Verifica el backend.</span>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
 
-      {/* ── Métricas ────────────────────────────────────── */}
+      {/* Alertas */}
+      {data.alertas.length > 0 && (
+        <div className={styles.alertas}>
+          {data.alertas.map((a, i) => (
+            <div key={i} className={`${styles.alerta} ${styles['alerta_' + a.tipo]}`}>
+              {ALERTA_ICONS[a.tipo]}
+              <span>{a.msg}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Metricas */}
       <div className={styles.metricsGrid}>
-        {METRICS.map((m) => (
-          <div key={m.label} className={styles.metricCard}>
-            <div className={styles.metricIcon} style={{ color: m.color, background: m.color + '18' }}>
-              <m.icon size={20} />
+        {METRIC_CONFIG.map((m) => {
+          const metric = data.metrics[m.key] || { label: '', value: 0, delta: '0' }
+          return (
+            <div key={m.key} className={styles.metricCard}>
+              <div className={styles.metricIcon} style={{ color: m.color, background: m.color + '18' }}>
+                <m.icon size={20} />
+              </div>
+              <div className={styles.metricInfo}>
+                <span className={styles.metricValue}>{renderMetricValue(m.key, metric.value)}</span>
+                <span className={styles.metricLabel}>{metric.label}</span>
+              </div>
+              <span className={styles.metricDelta} style={{ color: String(metric.delta || '').startsWith('+') ? '#8fc263' : '#888' }}>
+                {metric.delta}
+              </span>
             </div>
-            <div className={styles.metricInfo}>
-              <span className={styles.metricValue}>{m.value}</span>
-              <span className={styles.metricLabel}>{m.label}</span>
-            </div>
-            <span className={styles.metricDelta} style={{ color: m.delta.startsWith('+') ? '#8fc263' : '#888' }}>
-              {m.delta}
-            </span>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
-      {/* ── Gráfica + Top productos ──────────────────────── */}
+      {/* Grafica + Top productos */}
       <div className={styles.midRow}>
 
-        {/* Gráfica ventas */}
+        {/* Grafica ventas */}
         <div className={styles.card} style={{ flex: 2 }}>
           <div className={styles.cardHeader}>
             <h2 className={styles.cardTitle}>Ventas por mes</h2>
-            <span className={styles.cardSub}>Últimos 6 meses</span>
+            <span className={styles.cardSub}>Ultimos 6 meses</span>
           </div>
           <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={VENTAS_MES} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <AreaChart data={data.ventas_mes} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="greenGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#8fc263" stopOpacity={0.25} />
+                  <stop offset="5%" stopColor="#8fc263" stopOpacity={0.25} />
                   <stop offset="95%" stopColor="#8fc263" stopOpacity={0} />
                 </linearGradient>
               </defs>
@@ -126,7 +178,7 @@ export default function AdminDashboard() {
               <Tooltip
                 contentStyle={{ background: '#111', border: '1px solid rgba(143,194,99,0.2)', borderRadius: 7, fontSize: 12 }}
                 labelStyle={{ color: '#f7efd3' }}
-                formatter={(v) => [`$${v.toLocaleString('es-CO')}`, 'Ventas']}
+                formatter={(v) => [formatCop.format(v), 'Ventas']}
               />
               <Area type="monotone" dataKey="ventas" stroke="#8fc263" strokeWidth={2} fill="url(#greenGrad)" dot={{ fill: '#8fc263', r: 3 }} />
             </AreaChart>
@@ -140,12 +192,14 @@ export default function AdminDashboard() {
             <span className={styles.cardSub}>Por unidades</span>
           </div>
           <div className={styles.topList}>
-            {TOP_PRODUCTOS.map((p, i) => (
+            {data.top_productos.length === 0 ? (
+              <div className={styles.empty}>Sin datos</div>
+            ) : data.top_productos.map((p, i) => (
               <div key={p.nombre} className={styles.topItem}>
                 <span className={styles.topRank}>{i + 1}</span>
                 <div className={styles.topInfo}>
                   <span className={styles.topNombre}>{p.nombre}</span>
-                  <span className={styles.topIngresos}>{p.ingresos}</span>
+                  <span className={styles.topIngresos}>{formatCop.format(p.ingresos || 0)}</span>
                 </div>
                 <span className={styles.topVentas}>{p.ventas} uds</span>
               </div>
@@ -154,7 +208,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* ── Pedidos recientes ───────────────────────────── */}
+      {/* Pedidos recientes */}
       <div className={styles.card}>
         <div className={styles.cardHeader}>
           <h2 className={styles.cardTitle}>Pedidos recientes</h2>
@@ -174,11 +228,13 @@ export default function AdminDashboard() {
               </tr>
             </thead>
             <tbody>
-              {PEDIDOS_RECIENTES.map(p => (
+              {data.pedidos_recientes.length === 0 ? (
+                <tr><td colSpan={5} className={styles.empty}>Sin pedidos</td></tr>
+              ) : data.pedidos_recientes.map(p => (
                 <tr key={p.id}>
                   <td className={styles.tdMono}>{p.id}</td>
                   <td>{p.cliente}</td>
-                  <td className={styles.tdGreen}>{p.total}</td>
+                  <td className={styles.tdGreen}>{formatCop.format(p.total || 0)}</td>
                   <td>
                     <span
                       className={styles.badge}
@@ -187,7 +243,7 @@ export default function AdminDashboard() {
                       {p.estado}
                     </span>
                   </td>
-                  <td className={styles.tdMuted}>{p.fecha}</td>
+                  <td className={styles.tdMuted}>{new Date(p.fecha).toLocaleDateString('es-CO')}</td>
                 </tr>
               ))}
             </tbody>

@@ -11,28 +11,29 @@ import Detalle from './src/pages/Detalle/Detalle'
 import Contacto from './src/pages/Contacto/Contacto'
 import MisPedidos from './src/pages/MisPedidos/MisPedidos'
 import Auth from './src/Auth/Auth'
+import GoogleCallback from './src/Auth/GoogleCallback'
 import AdminLayout from './src/Admin/AdminLayout'
 import AdminDashboard from './src/Admin/AdminDashboard'
 import AdminProductos from './src/Admin/AdminProductos'
 import AdminPedidos from './src/Admin/AdminPedidos'
 import AdminUsuarios from './src/Admin/AdminUsuarios'
+import AdminCategorias from './src/Admin/Admincategorias'
 import NotFound from './src/pages/NotFound/NotFound'
 import './styles/globals.css'
 
-// Ruta protegida: requiere sesión activa
 function RequireAuth({ children }) {
   const { user } = useAuth()
   if (!user) return <Navigate to="/login" state={{ from: window.location.pathname }} replace />
   return children
 }
-
+ 
 function RequireAdmin({ children }) {
   const { user } = useAuth()
-  if (!user) return <Navigate to="/login" replace />
-  if (user.rol_nombre !== 'admin') return <Navigate to="/" replace />
+  if (!user) return <Navigate to="/" replace />
+  if (user.rol !== 'admin') return <Navigate to="/" replace />
   return children
 }
-
+ 
 function Layout({ children }) {
   return (
     <>
@@ -44,44 +45,50 @@ function Layout({ children }) {
     </>
   )
 }
-
+ 
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <CartProvider>
           <Routes>
-
+ 
             {/* Tienda pública */}
             <Route path="/"             element={<Layout><Home     /></Layout>} />
             <Route path="/tienda"       element={<Layout><Tienda   /></Layout>} />
             <Route path="/producto/:id" element={<Layout><Detalle  /></Layout>} />
             <Route path="/contacto"     element={<Layout><Contacto /></Layout>} />
-
+ 
             {/* Requiere sesión */}
             <Route path="/mis-pedidos" element={
               <RequireAuth><Layout><MisPedidos /></Layout></RequireAuth>
             } />
-
+ 
             {/* Auth */}
             <Route path="/login" element={<Auth />} />
-
+            <Route path="/oauth/google" element={<GoogleCallback />} />
+            
+ 
             {/* Panel admin */}
             <Route path="/admin" element={
               <RequireAdmin><AdminLayout /></RequireAdmin>
             }>
               <Route index              element={<AdminDashboard />} />
-              <Route path="productos"   element={<AdminProductos />} />
-              <Route path="pedidos"     element={<AdminPedidos   />} />
-              <Route path="usuarios"    element={<AdminUsuarios  />} />
+              <Route path="productos"   element={<AdminProductos  />} />
+              <Route path="categorias"  element={<AdminCategorias />} />
+              <Route path="pedidos"     element={<AdminPedidos    />} />
+              <Route path="usuarios"    element={<AdminUsuarios   />} />
             </Route>
-
+ 
             {/* 404 */}
             <Route path="*" element={<Layout><NotFound /></Layout>} />
-
+ 
           </Routes>
         </CartProvider>
       </AuthProvider>
     </BrowserRouter>
   )
 }
+
+
+

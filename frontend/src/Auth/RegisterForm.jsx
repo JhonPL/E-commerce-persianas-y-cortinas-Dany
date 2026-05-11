@@ -72,7 +72,30 @@ export default function RegisterForm({ from, onSwitchToLogin }) {
   }
 
   const handleGoogleRegister = () => {
-    alert('Google OAuth — conectar con el backend')
+    clearError()
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
+    if (!clientId) {
+      alert('Configura VITE_GOOGLE_CLIENT_ID en el .env del frontend.')
+      return
+    }
+
+    const redirectUri = `${window.location.origin}/oauth/google`
+    const state = (window.crypto?.randomUUID ? window.crypto.randomUUID() : String(Date.now()))
+
+    sessionStorage.setItem('google_oauth_state', state)
+    sessionStorage.setItem('oauth_from', from)
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      response_type: 'code',
+      scope: 'openid email profile',
+      include_granted_scopes: 'true',
+      prompt: 'select_account',
+      state,
+    })
+
+    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
   }
 
   return (
@@ -246,3 +269,8 @@ export default function RegisterForm({ from, onSwitchToLogin }) {
     </>
   )
 }
+
+
+
+
+

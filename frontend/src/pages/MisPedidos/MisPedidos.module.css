@@ -1,79 +1,78 @@
-.page { padding-top: 80px; min-height: 100vh; background: #000; }
-.inner { max-width: 860px; margin: 0 auto; padding: 48px 24px 80px; }
+.container   { max-width: 900px; margin: 0 auto; padding: 2rem 1rem; }
+.titulo      { font-size: 1.8rem; font-weight: 700; color: var(--willow-green); margin-bottom: .25rem; }
+.subtitulo   { color: rgba(247,239,211,.5); margin-bottom: 1.5rem; }
 
-.pageHeader { margin-bottom: 32px; }
-.pageTitle { font-family: "Brown Sugar", serif; font-size: 2rem; font-weight: normal; color: #f7efd3; letter-spacing: 0.03em; }
-.pageSub { font-size: 0.88rem; color: #888; margin-top: 6px; }
-.pageSub strong { color: #f7efd3; font-weight: 500; }
+.lista       { display: flex; flex-direction: column; gap: 1rem; }
 
-/* Lista */
-.list { display: flex; flex-direction: column; gap: 14px; }
+.tarjeta     { background: #0d0d0d; border: 1px solid rgba(143,194,99,.15); border-radius: 12px; overflow: hidden; }
 
-/* Card */
-.card { background: #0d0d0d; border: 1px solid rgba(143,194,99,0.1); border-radius: 10px; overflow: hidden; transition: border-color 0.25s; }
-.card:hover { border-color: rgba(143,194,99,0.2); }
-
-.cardHeader {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 16px 20px; cursor: pointer; gap: 12px; flex-wrap: wrap;
+.encabezado  {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  padding: 1rem 1.25rem; background: none; border: none; cursor: pointer; gap: 1rem;
+  color: var(--cornsilk);
 }
-.cardHeaderLeft { display: flex; align-items: center; gap: 12px; }
-.cardIcon { color: #8fc263; flex-shrink: 0; }
-.cardId { display: block; font-family: monospace; font-size: 0.9rem; font-weight: 600; color: #f7efd3; }
-.cardFecha { display: block; font-size: 0.72rem; color: #666; margin-top: 1px; }
+.encabezado:hover { background: rgba(143,194,99,.05); }
+.encabezadoLeft  { display: flex; align-items: center; gap: .75rem; }
+.encabezadoRight { display: flex; align-items: center; gap: .75rem; flex-shrink: 0; }
 
-.cardHeaderRight { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-.estadoBadge { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em; padding: 3px 10px; border-radius: 20px; border: 1px solid; white-space: nowrap; }
-.cardTotal { font-size: 1rem; font-weight: 700; color: #8fc263; white-space: nowrap; }
-.chevron { color: #555; flex-shrink: 0; }
+.pedidoId  { font-weight: 600; }
+.fecha     { color: rgba(247,239,211,.5); font-size: .85rem; }
+.total     { font-weight: 700; color: var(--willow-green); }
 
-/* Cuerpo expandible */
-.cardBody { border-top: 1px solid rgba(143,194,99,0.08); padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+.badge     {
+  font-size: .72rem; font-weight: 600; padding: .2rem .6rem;
+  border-radius: 20px; color: #000;
+}
+
+/* Detalle */
+.detalle   { padding: 1.25rem; border-top: 1px solid rgba(143,194,99,.1); }
 
 /* Barra de progreso */
-.progressBar { display: flex; align-items: flex-start; gap: 0; }
-.progressStep { display: flex; flex-direction: column; align-items: center; flex: 1; position: relative; }
-.progressDot {
-  width: 26px; height: 26px; border-radius: 50%;
-  background: #111; border: 2px solid #333;
+.progreso  { display: flex; align-items: flex-start; gap: 0; margin-bottom: 1.5rem; justify-content: center; }
+.pasoWrap  { display: flex; flex-direction: column; align-items: center; gap: .3rem; position: relative; flex: 1; }
+.circulo   {
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 2px solid rgba(247,239,211,.3); background: #080808;
   display: flex; align-items: center; justify-content: center;
-  transition: all 0.3s; z-index: 1; flex-shrink: 0;
+  font-size: .75rem; color: rgba(247,239,211,.4); z-index: 1;
+  transition: all .3s;
 }
-.progressDotActive { background: #8fc263; border-color: #8fc263; }
-.progressCheck { font-size: 0.65rem; color: #000; font-weight: 700; }
-.progressLabel { font-size: 0.62rem; color: #555; text-align: center; margin-top: 6px; letter-spacing: 0.04em; line-height: 1.3; max-width: 80px; }
-.progressLabelActive { color: #8fc263; }
-.progressLine {
-  position: absolute; top: 13px; left: 50%; right: -50%;
-  height: 2px; background: #222; z-index: 0;
-  width: 100%;
+.circulo.activo  { border-color: var(--willow-green); background: var(--willow-green); color: #000; font-weight: 700; }
+.pasoLabel       { font-size: .7rem; color: rgba(247,239,211,.4); text-align: center; line-height: 1.2; }
+.pasoLabel.activoLabel { color: var(--cornsilk); }
+.linea           { position: absolute; top: 14px; left: 50%; width: 100%; height: 2px; background: rgba(247,239,211,.15); z-index: 0; }
+.linea.lineaActiva { background: var(--willow-green); }
+
+.ciudad { font-size: .85rem; color: rgba(247,239,211,.6); display: flex; align-items: center; gap: .4rem; margin-bottom: 1rem; }
+
+/* Tabla */
+.tabla     { width: 100%; border-collapse: collapse; font-size: .85rem; }
+.tabla th  { text-align: left; padding: .5rem .75rem; color: rgba(247,239,211,.5); border-bottom: 1px solid rgba(143,194,99,.1); font-weight: 500; }
+.tabla td  { padding: .6rem .75rem; border-bottom: 1px solid rgba(255,255,255,.05); color: var(--cornsilk); vertical-align: middle; }
+.tabla tr:last-child td { border-bottom: none; }
+.tdTotal   { font-weight: 600; color: var(--willow-green); }
+
+.productoCell { display: flex; align-items: center; gap: .6rem; }
+.thumb        { width: 36px; height: 36px; object-fit: cover; border-radius: 6px; }
+
+.resumen  {
+  display: flex; justify-content: flex-end; align-items: center; gap: 1rem;
+  margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(143,194,99,.1);
+  font-size: 1rem;
 }
-.progressLineActive { background: #8fc263; }
+.resumen strong { color: var(--willow-green); font-size: 1.1rem; }
 
-/* Tabla ítems */
-.itemsTable { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-.itemsTable th { text-align: left; padding: 7px 10px; font-size: 0.65rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #555; border-bottom: 1px solid rgba(143,194,99,0.08); }
-.itemsTable td { padding: 10px 10px; color: #ccc; border-bottom: 1px solid rgba(255,255,255,0.04); }
-.itemsTable tr:last-child td { border-bottom: none; }
-.tdNombre { font-weight: 500; color: #f7efd3; }
-.tdMuted { color: #666; font-size: 0.75rem; }
-.tdGreen { color: #8fc263; font-weight: 600; }
-
-/* Total */
-.totalRow { display: flex; justify-content: space-between; align-items: center; padding: 10px 0 0; border-top: 1px solid rgba(143,194,99,0.08); }
-.totalLabel { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #888; }
-.totalValue { font-size: 1.1rem; font-weight: 700; color: #8fc263; }
-
-/* Estado vacío */
-.empty { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 80px 20px; text-align: center; }
-.emptyIcon { color: #333; }
-.emptyTitle { font-family: "Brown Sugar", serif; font-size: 1.4rem; font-weight: normal; color: #f7efd3; }
-.emptySub { font-size: 0.88rem; color: #888; }
-.btnPrimary { display: inline-flex; align-items: center; gap: 8px; background: #8fc263; color: #000; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 12px 28px; border-radius: 7px; text-decoration: none; transition: background 0.25s; }
-.btnPrimary:hover { background: #cfe795; }
-
-@media (max-width: 600px) {
-  .cardHeader { flex-direction: column; align-items: flex-start; }
-  .cardHeaderRight { width: 100%; justify-content: space-between; }
-  .progressLabel { font-size: 0.55rem; max-width: 60px; }
+/* Vacío */
+.vacio    { display: flex; flex-direction: column; align-items: center; gap: 1rem; padding: 4rem 1rem; color: rgba(247,239,211,.4); }
+.vacio h2 { color: var(--cornsilk); }
+.btnTienda {
+  margin-top: .5rem; padding: .7rem 1.8rem; background: var(--willow-green);
+  color: #000; border-radius: 8px; font-weight: 600; text-decoration: none;
 }
+.btnTienda:hover { background: var(--lime-cream); }
+
+/* Loading/error */
+.centered  { display: flex; flex-direction: column; align-items: center; gap: 1rem; padding: 4rem 1rem; }
+.spinner   { width: 36px; height: 36px; border: 3px solid rgba(143,194,99,.2); border-top-color: var(--willow-green); border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.errorMsg  { color: #f87171; }
