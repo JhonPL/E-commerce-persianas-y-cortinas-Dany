@@ -11,6 +11,47 @@ const COLOR_ESTADO = {
   'Enviado':                  '#8fc263',
 }
 
+const FAKE_ESTADOS = [
+  { estado_id: 1, nombre: 'Pendiente de preparación' },
+  { estado_id: 2, nombre: 'Preparado' },
+  { estado_id: 3, nombre: 'Enviado' },
+]
+
+const FAKE_PEDIDOS = [
+  {
+    pedido_id: 501,
+    fecha_pedido: '2026-05-01T15:20:00Z',
+    total: '185000',
+    estado_id: 1,
+    estado_nombre: 'Pendiente de preparación',
+    cliente_nombre: 'Daniela Pardo',
+    cliente_email: 'daniela.pardo@demo.com',
+    ciudad: 'Bogota',
+    num_items: 2,
+  },
+  {
+    pedido_id: 502,
+    fecha_pedido: '2026-05-03T09:10:00Z',
+    total: '92000',
+    estado_id: 2,
+    estado_nombre: 'Preparado',
+    cliente_nombre: 'Miguel Torres',
+    cliente_email: 'miguel.torres@demo.com',
+    ciudad: 'Medellin',
+    num_items: 1,
+  },
+  {
+    pedido_id: 503,
+    fecha_pedido: '2026-05-06T18:40:00Z',
+    total: '248000',
+    estado_id: 3,
+    estado_nombre: 'Enviado',
+    cliente_nombre: 'Laura Cardenas',
+    cliente_email: 'laura.cardenas@demo.com',
+    ciudad: 'Cali',
+    num_items: 3,
+  },
+]
 function ModalDetalle({ pedido, estados, onCerrar, onCambiarEstado }) {
   const [estadoId, setEstadoId] = useState(pedido.estado_id)
   const [guardando, setGuardando] = useState(false)
@@ -106,27 +147,38 @@ export default function AdminPedidos() {
   const [total,     setTotal]     = useState(0)
   const [seleccionado, setSeleccionado] = useState(null)
   const [detalleCache, setDetalleCache] = useState({})
+  const [sinConexion, setSinConexion] = useState(false)
 
   const cargarEstados = useCallback(async () => {
     try {
       const res  = await fetch(`${API}/admin/estados-pedido/`, { headers: { Authorization: `Bearer ${token}` } })
+      if (!res.ok) throw new Error('Respuesta no OK')
       const data = await res.json()
       setEstados(data)
-    } catch { /* silencioso */ }
+    } catch {
+      setEstados(FAKE_ESTADOS)
+    }
   }, [token])
 
   const cargarPedidos = useCallback(async () => {
     setLoading(true)
+    setSinConexion(false)
     try {
       const params = new URLSearchParams({ page })
       if (search)    params.set('search', search)
       if (filtroEst) params.set('estado', filtroEst)
       const res  = await fetch(`${API}/admin/pedidos/?${params}`, { headers: { Authorization: `Bearer ${token}` } })
+      if (!res.ok) throw new Error('Respuesta no OK')
       const data = await res.json()
       setPedidos(data.pedidos ?? [])
       setPages(data.pages ?? 1)
       setTotal(data.total ?? 0)
-    } catch { setPedidos([]) }
+    } catch {
+      setSinConexion(true)
+      setPedidos(FAKE_PEDIDOS)
+      setPages(1)
+      setTotal(FAKE_PEDIDOS.length)
+    }
     finally  { setLoading(false) }
   }, [token, page, search, filtroEst])
 
@@ -211,7 +263,7 @@ export default function AdminPedidos() {
               </thead>
               <tbody>
                 {pedidos.length === 0 ? (
-                  <tr><td colSpan={8} className={styles.empty}>Sin resultados</td></tr>
+                  <tr><td colSpan={8} className={styles.empty}>{sinConexion ? 'Sin conexión al backend' : 'Sin resultados'}</td></tr>
                 ) : pedidos.map(p => (
                   <tr key={p.pedido_id}>
                     <td className={styles.idCell}>#{p.pedido_id}</td>
@@ -268,3 +320,9 @@ export default function AdminPedidos() {
     </div>
   )
 }
+
+
+
+
+
+

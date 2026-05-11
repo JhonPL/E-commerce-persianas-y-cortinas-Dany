@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ShoppingBag, Package, Users, TrendingUp,
@@ -19,7 +18,7 @@ const METRICS = [
 ]
 
 const VENTAS_MES = [
-  { mes: 'Oct', ventas: 1200000 },
+  { mes: 'Oct', ventas: 1200000 },  
   { mes: 'Nov', ventas: 1950000 },
   { mes: 'Dic', ventas: 3100000 },
   { mes: 'Ene', ventas: 2400000 },

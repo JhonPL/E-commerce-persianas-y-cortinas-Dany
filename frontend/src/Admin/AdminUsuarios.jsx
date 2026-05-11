@@ -27,20 +27,29 @@ export default function AdminUsuarios() {
   const [pages,     setPages]     = useState(1)
   const [total,     setTotal]     = useState(0)
   const [toggling,  setToggling]  = useState(null)  // usuario_id en proceso
+  const [sinConexion, setSinConexion] = useState(false)
 
   const cargar = useCallback(async () => {
     setLoading(true)
+    setSinConexion(false)
     try {
       const params = new URLSearchParams({ page })
       if (search)    params.set('search', search)
       if (filtroRol) params.set('rol', filtroRol)
       const res  = await fetch(`${API}/admin/usuarios/?${params}`, { headers: { Authorization: `Bearer ${token}` } })
+      if (!res.ok) throw new Error('Respuesta no OK')
       const data = await res.json()
       setUsuarios(data.usuarios ?? [])
       setStats(data.stats ?? { total: 0, activos: 0, admins: 0, clientes: 0 })
       setPages(data.pages ?? 1)
       setTotal(data.total ?? 0)
-    } catch { setUsuarios([]) }
+    } catch {
+      setSinConexion(true)
+      setUsuarios([])
+      setStats({ total: 0, activos: 0, admins: 0, clientes: 0 })
+      setPages(1)
+      setTotal(0)
+    }
     finally  { setLoading(false) }
   }, [token, page, search, filtroRol])
 
@@ -122,7 +131,7 @@ export default function AdminUsuarios() {
               </thead>
               <tbody>
                 {usuarios.length === 0 ? (
-                  <tr><td colSpan={5} className={styles.empty}>Sin resultados</td></tr>
+                  <tr><td colSpan={5} className={styles.empty}>{sinConexion ? 'Sin conexión al backend' : 'Sin resultados'}</td></tr>
                 ) : usuarios.map(u => (
                   <tr key={u.usuario_id}>
                     <td>
@@ -179,3 +188,8 @@ export default function AdminUsuarios() {
     </div>
   )
 }
+
+
+
+
+

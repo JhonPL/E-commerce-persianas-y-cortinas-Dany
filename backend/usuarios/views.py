@@ -1,9 +1,11 @@
 from rest_framework import generics, status
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.conf import settings
+from django.db.models import Q
 import requests
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
@@ -11,6 +13,7 @@ from .models import Usuario, Cliente, Rol
 from .serializers import (RegistroSerializer, LoginSerializer,
                            UsuarioSerializer, ClienteSerializer,
                            ActualizarClienteSerializer)
+from .permissions import EsAdmin
 
 
 class RegistroView(generics.CreateAPIView):
@@ -209,5 +212,74 @@ class MiUsuarioView(generics.RetrieveAPIView):
 
     def get_object(self):
         return self.request.user
+
+
+class AdminUsuariosView(APIView):
+    permission_classes = [IsAuthenticated, EsAdmin]
+
+    def get(self, request):
+        qs = Usuario.objects.select_related('rol').all().order_by('-fecha_registro')
+        search = request.query_params.get('search', '').strip()
+        rol = request.query_params.get('rol', '').strip()
+
+        if search:
+            qs = qs.filter(Q(nombre__icontains=search) | Q(email__icontains=search))
+        if rol in [Rol.ADMIN, Rol.CLIENTE]:
+            qs = qs.filter(rol__nombre=rol)
+
+        stats = {
+            'total': qs.count(),
+            'activos': qs.filter(activo=True).count(),
+            'admins': qs.filter(rol__nombre=Rol.ADMIN).count(),
+            'clientes': qs.filter(rol__nombre=Rol.CLIENTE).count(),
+        }
+
+        paginator = PageNumberPagination()
+        page = paginator.paginate_queryset(qs, request)
+        usuarios = [
+            {
+                'usuario_id': u.usuario_id,
+                'nombre': u.nombre,
+                'email': u.email,
+                'rol': u.rol.nombre,
+                'activo': u.activo,
+                'fecha_registro': u.fecha_registro,
+                'proveedor_auth': u.proveedor_auth,
+            }
+            for u in page
+        ]
+
+        total = qs.count()
+        pages = paginator.page.paginator.num_pages if paginator.page else 1
+
+        return Response({
+            'usuarios': usuarios,
+            'stats': stats,
+            'pages': pages,
+            'total': total,
+        })
+
+
+class AdminUsuarioActivoView(APIView):
+    permission_classes = [IsAuthenticated, EsAdmin]
+
+    def patch(self, request, usuario_id):
+        usuario = Usuario.objects.select_related('rol').filter(usuario_id=usuario_id).first()
+        if not usuario:
+            return Response({'detail': 'Usuario no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+        if usuario.rol.nombre == Rol.ADMIN:
+            return Response({'detail': 'No se puede desactivar un admin.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        activo = request.data.get('activo')
+        if activo is None:
+            return Response({'detail': 'Campo "activo" requerido.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        usuario.activo = bool(activo)
+        usuario.save(update_fields=['activo'])
+
+        return Response({
+            'usuario_id': usuario.usuario_id,
+            'activo': usuario.activo,
+        })
 
 
