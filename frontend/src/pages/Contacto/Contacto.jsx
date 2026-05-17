@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { MapPin, Phone, Mail, Clock, Send, CheckCircle, MessageCircle } from 'lucide-react'
 import styles from './Contacto.module.css'
 
-const WHATSAPP = '573001234567'
+const WHATSAPP = '573123558218'
 
 export default function Contacto() {
   const [form, setForm]     = useState({ nombre: '', email: '', asunto: '', mensaje: '' })
@@ -62,9 +62,9 @@ export default function Contacto() {
 
             <div className={styles.infoCards}>
               {[
-                { icon: MapPin,  label: 'Dirección',  value: 'Calle 35 # 28-14, Villavicencio, Meta' },
-                { icon: Phone,   label: 'Teléfono',   value: '+57 300 123 4567' },
-                { icon: Mail,    label: 'Correo',     value: 'ventas@cortinasydany.com' },
+                { icon: MapPin,  label: 'Dirección',  value: 'Carrera 13 # 20-52, Granada, Meta' },
+                { icon: Phone,   label: 'Teléfono',   value: '+57 312 355 8218' },
+                { icon: Mail,    label: 'Correo',     value: 'percortinasdany@gmail.com' },
                 { icon: Clock,   label: 'Horario',    value: 'Lun – Sáb: 8:00 am – 6:00 pm' },
               ].map(({ icon: Icon, label, value }) => (
                 <div key={label} className={styles.infoCard}>
@@ -87,7 +87,7 @@ export default function Contacto() {
             <div className={styles.mapWrapper}>
               <iframe
                 title="Ubicación Persianas y Cortinas Dany"
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d15935.01!2d-73.6366!3d4.1420!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8e3e2e!2sVillavicencio!5e0!3m2!1ses!2sco!4v1"
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d995.544312950753!2d-73.70973889645447!3d3.546561158776709!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8e3de394bc88258f%3A0x1fddeee94dfc8254!2sPersianas%20y%20Cortinas%20Dany!5e0!3m2!1ses!2sco!4v1778968467176!5m2!1ses!2sco"
                 width="100%"
                 height="200"
                 style={{ border: 0, borderRadius: 8 }}
