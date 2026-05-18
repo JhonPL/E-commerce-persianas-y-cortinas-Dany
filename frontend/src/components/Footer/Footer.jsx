@@ -36,7 +36,7 @@ export default function Footer() {
       </div>
 
       <div className={styles.bottom}>
-        <p>© {new Date().getFullYear()} Persianas &amp; Cortinas Dany — Villavicencio, Meta</p>
+        <p>© {new Date().getFullYear()} Persianas &amp; Cortinas Dany — Granada, Meta</p>
       </div>
     </footer>
   )

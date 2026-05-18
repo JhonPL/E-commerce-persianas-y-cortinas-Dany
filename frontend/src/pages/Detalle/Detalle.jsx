@@ -8,14 +8,21 @@ import styles from './Detalle.module.css'
 const formatCOP = (n) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
 
-// Instrucciones genéricas de medición por categoría
-const GUIA_DEFAULT = {
-  'Cortinas':   'Mide el ancho del riel o barra y el alto desde la parte superior del riel hasta donde deseas que llegue la cortina. Agrega al menos 20 cm al ancho para el efecto de vuelo.',
-  'Persianas':  'Mide el ancho interno del vano (de pared a pared) y el alto desde el techo hasta el suelo. Descuenta 1 cm del ancho para un ajuste perfecto.',
-  'Paneles':    'Mide el ancho total del vano y el alto desde el techo hasta el suelo. Cada panel ocupa aproximadamente 60 cm de ancho.',
-  'Accesorios': 'Consulta las medidas específicas del accesorio en la descripción del producto.',
+// Videos de guía de instalación (solo para Cortinas y Persianas)
+const VIDEOS_GUIA = {
+  'ventana_pequena': {
+    titulo: 'Ventana Pequeña',
+    url: '/video/MEDIDAS VENTANA PEQUEÑA.mp4'
+  },
+  'pared_a_pared': {
+    titulo: 'Pared a Pared',
+    url: '/video/MEDIDAS PARED A PARED.mp4'
+  },
+  'techo_a_piso': {
+    titulo: 'Techo a Piso',
+    url: '/video/TECHO.mp4'
+  }
 }
-const GUIA_FALLBACK = 'Mide el ancho y el alto del vano donde se instalará el producto. Ingresa las medidas en centímetros para calcular el precio total.'
 
 export default function Detalle() {
   const { id }               = useParams()
@@ -29,6 +36,7 @@ export default function Detalle() {
   const [alto,       setAlto]       = useState('')
   const [medErrors,  setMedErrors]  = useState({})
   const [added,      setAdded]      = useState(false)
+  const [videoModal, setVideoModal] = useState(null)
 
   // Cargar producto del backend
   useEffect(() => {
@@ -96,7 +104,6 @@ export default function Detalle() {
     : []
 
   const categorNombre = product.categoria_nombre || ''
-  const guiaTexto     = GUIA_DEFAULT[categorNombre] || GUIA_FALLBACK
 
   return (
     <div className={styles.page}>
@@ -156,16 +163,31 @@ export default function Detalle() {
 
             <div className={styles.divider} />
 
-            {/* Guía de medidas */}
-            <div className={styles.guia}>
-              <h3 className={styles.guiaTitulo}>
-                <AlertCircle size={16} />
-                ¿Cómo tomar las medidas?
-              </h3>
-              <p className={styles.guiaTexto}>{guiaTexto}</p>
-            </div>
+            {/* Guía de medidas con videos */}
+            {(categorNombre === 'Cortinas' || categorNombre === 'Persianas') && (
+              <>
+                <div className={styles.guia}>
+                  <h3 className={styles.guiaTitulo}>
+                    <AlertCircle size={16} />
+                    ¿Cómo tomar las medidas?
+                  </h3>
+                  
+                  <div className={styles.videosGrid}>
+                    {Object.entries(VIDEOS_GUIA).map(([key, video]) => (
+                      <div key={key} className={styles.videoCard} onClick={() => setVideoModal(video)}>
+                        <video controls width="100%" controlsList="nodownload">
+                          <source src={video.url} type="video/mp4" />
+                          Tu navegador no soporta videos HTML5
+                        </video>
+                        <p className={styles.videoLabel}>{video.titulo}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
-            <div className={styles.divider} />
+                <div className={styles.divider} />
+              </>
+            )}
 
             {/* Formulario de medidas */}
             <div className={styles.medidas}>
@@ -218,6 +240,24 @@ export default function Detalle() {
           </div>
         </div>
       </div>
+
+      {/* Modal de video ampliado */}
+      {videoModal && (
+        <div className={styles.videoModal} onClick={() => setVideoModal(null)}>
+          <div className={styles.videoModalContent} onClick={(e) => e.stopPropagation()}>
+            <button className={styles.videoModalClose} onClick={() => setVideoModal(null)}>
+              ✕
+            </button>
+            <h3 className={styles.videoModalTitle}>{videoModal.titulo}</h3>
+            <div className={styles.videoModalPlayer}>
+              <video controls width="100%">
+                <source src={videoModal.url} type="video/mp4" />
+                Tu navegador no soporta videos HTML5
+              </video>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

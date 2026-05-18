@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { Eye, EyeOff, Mail, Lock, User, AlertCircle, CheckCircle } from 'lucide-react'
+import { Eye, EyeOff, Mail, Lock, User, AlertCircle, CheckCircle, Ruler, CreditCard, Truck } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import LoginForm from './LoginForm'
 import RegisterForm from './RegisterForm'
@@ -81,12 +81,12 @@ export default function Auth() {
           {/* Tarjetas de beneficios */}
           <div className={styles.decorCards}>
             {[
-              { icon: '📐', label: 'A tu medida exacta' },
-              { icon: '💳', label: 'Pago seguro en línea' },
-              { icon: '🚚', label: 'Envío a todo el país' },
+              { Icon: Ruler, label: 'A tu medida exacta' },
+              { Icon: CreditCard, label: 'Pago seguro en línea' },
+              { Icon: Truck, label: 'Envío a todo el país' },
             ].map(c => (
               <div key={c.label} className={styles.decorCard}>
-                <span>{c.icon}</span>
+                <c.Icon size={32} />
                 <span>{c.label}</span>
               </div>
             ))}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { Ruler, ShoppingCart, CreditCard, Truck } from 'lucide-react'
 import Hero from '../../components/Hero/Hero'
 import ProductCard from '../../components/ProductCard/ProductCard'
 import { API_URL } from '../../config/api'
@@ -106,13 +107,13 @@ export default function Home() {
           </div>
           <div className={styles.procesosGrid}>
             {[
-              { icon: '📐', title: 'Mide tu espacio',      desc: 'Te guiamos con instrucciones claras para que tomes las medidas perfectas.' },
-              { icon: '🛒', title: 'Elige y personaliza',  desc: 'Selecciona tu producto, ingresa tus medidas y el sistema calcula el precio al instante.' },
-              { icon: '💳', title: 'Paga de forma segura', desc: 'Pasarela de pagos integrada con tarjeta débito, crédito o PSE.' },
-              { icon: '🚚', title: 'Recibe e instala',     desc: 'Fabricamos a tu medida y te lo enviamos. También ofrecemos servicio de instalación.' },
+              { Icon: Ruler, title: 'Mide tu espacio',      desc: 'Te guiamos con instrucciones claras para que tomes las medidas perfectas.' },
+              { Icon: ShoppingCart, title: 'Elige y personaliza',  desc: 'Selecciona tu producto, ingresa tus medidas y el sistema calcula el precio al instante.' },
+              { Icon: CreditCard, title: 'Paga de forma segura', desc: 'Pasarela de pagos integrada con tarjeta débito, crédito o PSE.' },
+              { Icon: Truck, title: 'Recibe e instala',     desc: 'Fabricamos a tu medida y te lo enviamos. También ofrecemos servicio de instalación.' },
             ].map(paso => (
               <div key={paso.title} className={styles.pasoCard}>
-                <span className={styles.pasoIcon}>{paso.icon}</span>
+                <div className={styles.pasoIcon}><paso.Icon size={40} /></div>
                 <h4 className={styles.pasoTitle}>{paso.title}</h4>
                 <p className={styles.pasoDesc}>{paso.desc}</p>
               </div>

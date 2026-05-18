@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { CartProvider } from './src/context/CartContext'
 import { AuthProvider, useAuth } from './src/context/AuthContext'
+import ScrollToTop from './src/components/ScrollToTop'
 import Navbar from './src/components/Navbar/Navbar'
 import WhatsAppButton from './src/components/WhatsAppButton/WhatsAppButton'
 import Footer from './src/components/Footer/Footer'
@@ -49,6 +50,7 @@ function Layout({ children }) {
 export default function App() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <AuthProvider>
         <CartProvider>
           <Routes>
