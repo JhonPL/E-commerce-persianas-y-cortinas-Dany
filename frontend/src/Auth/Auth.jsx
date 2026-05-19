@@ -33,7 +33,7 @@ export default function Auth() {
 
           {/* Logo */}
           <Link to="/" className={styles.logo}>
-            <span className={styles.logoIcon}>🪟</span>
+            <img src="/img/logogreen.webp" alt="Logo" width="48" height="48" />
             <div className={styles.logoText}>
               <span className={styles.logoTop}>PERSIANAS &amp; CORTINAS</span>
               <span className={styles.logoBottom}>DANY</span>

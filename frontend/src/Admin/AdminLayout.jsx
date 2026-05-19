@@ -41,14 +41,14 @@ export default function AdminLayout() {
         <div className={styles.sidebarHeader}>
           {!collapsed && (
             <div className={styles.sidebarLogo}>
-              <span className={styles.sidebarLogoIcon}>🪟</span>
+              <img src="/img/logogreen.webp" alt="Logo" className={styles.sidebarLogoIcon} width="32" height="32" />
               <div className={styles.sidebarLogoText}>
                 <span className={styles.sidebarLogoName}>DANY</span>
                 <span className={styles.sidebarLogoSub}>Panel Admin</span>
               </div>
             </div>
           )}
-          {collapsed && <span className={styles.sidebarLogoIconOnly}>🪟</span>}
+          {collapsed && <img src="/img/logogreen.webp" alt="Logo" className={styles.sidebarLogoIconOnly} width="32" height="32" />}
           <button
             className={styles.collapseBtn}
             onClick={() => setCollapsed(v => !v)}

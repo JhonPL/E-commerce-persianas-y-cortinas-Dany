@@ -11,8 +11,8 @@ export default function NotFound() {
         <div className={styles.code}>404</div>
 
         <div className={styles.curtain}>
-          <span className={styles.curtainLeft}>  🪟</span>
-          <span className={styles.curtainRight}>🪟  </span>
+          <span className={styles.curtainLeft}>  <img src="/img/logogreen.webp" alt="Logo" width="32" height="32" /></span>
+          <span className={styles.curtainRight}><img src="/img/logogreen.webp" alt="Logo" width="32" height="32" />  </span>
         </div>
 
         <h1 className={styles.title}>Página no encontrada</h1>

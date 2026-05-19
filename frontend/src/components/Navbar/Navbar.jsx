@@ -5,6 +5,12 @@ import { useCart } from '../../context/CartContext'
 import { useAuth } from '../../context/AuthContext'
 import styles from './Navbar.module.css'
 
+const LOGOS = {
+  green: '/img/logogreen.webp',
+  white: '/img/logowhite.webp',
+  black: '/img/logoblack.webp'
+}
+
 export default function Navbar() {
   const { count, toggleCart } = useCart()
   const { user, logout } = useAuth()
@@ -15,6 +21,20 @@ export default function Navbar() {
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const location = useLocation()
   const userMenuRef = useRef(null)
+
+  // Determina qué logo mostrar según el estado
+  const getLogoToUse = () => {
+    // Si estamos en la página de inicio y no hay scroll, mostrar logo verde
+    if (location.pathname === '/' && !scrolled) {
+      return LOGOS.green
+    }
+    // Si hay scroll (navbar con fondo oscuro), mostrar logo blanco
+    if (scrolled) {
+      return LOGOS.black
+    }
+    // Por defecto en otras páginas, mostrar logo negro
+    return LOGOS.white
+  }
 
   // Maneja logout y navega a tienda sin agregar al historial
   const handleLogout = () => {
@@ -48,7 +68,13 @@ export default function Navbar() {
 
         {/* Logo */}
         <Link to="/" className={styles.logo}>
-          <span className={styles.logoIcon}>🪟</span>
+          <img 
+            src={getLogoToUse()} 
+            alt="Persianas & Cortinas Dany" 
+            className={styles.logoImage}
+            width="48"
+            height="48"
+          />
           <div className={styles.logoText}>
             <span className={styles.logoTop}>PERSIANAS &amp; CORTINAS</span>
             <span className={styles.logoBottom}>DANY</span>
