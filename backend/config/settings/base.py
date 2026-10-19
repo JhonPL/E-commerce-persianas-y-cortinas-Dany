@@ -139,13 +139,73 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
+CATALOGO_SERVICE_URL = env(
+    'CATALOGO_SERVICE_URL',
+    default='http://127.0.0.1:8001/api/v1/catalogo',
+)
+CATALOGO_SERVICE_INTERNAL_URL = env(
+    'CATALOGO_SERVICE_INTERNAL_URL',
+    default='http://127.0.0.1:8001/api/internal/catalogo',
+)
+CATALOGO_SERVICE_TIMEOUT_SECONDS = env.int(
+    'CATALOGO_SERVICE_TIMEOUT_SECONDS',
+    default=5,
+)
+CART_SERVICE_URL = env(
+    'CART_SERVICE_URL',
+    default='http://127.0.0.1:8002/api/v1/carrito',
+)
+CART_SERVICE_INTERNAL_URL = env(
+    'CART_SERVICE_INTERNAL_URL',
+    default='http://127.0.0.1:8002/api/internal/carrito',
+)
+CART_SERVICE_TIMEOUT_SECONDS = env.int(
+    'CART_SERVICE_TIMEOUT_SECONDS',
+    default=5,
+)
+ORDERS_SERVICE_URL = env(
+    'ORDERS_SERVICE_URL',
+    default='http://127.0.0.1:8003',
+)
+ORDERS_SERVICE_TIMEOUT_SECONDS = env.int(
+    'ORDERS_SERVICE_TIMEOUT_SECONDS',
+    default=5,
+)
+IDENTITY_SERVICE_URL = env(
+    'IDENTITY_SERVICE_URL',
+    default='http://127.0.0.1:8004',
+)
+IDENTITY_SERVICE_TIMEOUT_SECONDS = env.int(
+    'IDENTITY_SERVICE_TIMEOUT_SECONDS',
+    default=5,
+)
+NOTIFICATION_SERVICE_URL = env(
+    'NOTIFICATION_SERVICE_URL',
+    default='http://127.0.0.1:8005',
+)
+NOTIFICATION_SERVICE_TIMEOUT_SECONDS = env.int(
+    'NOTIFICATION_SERVICE_TIMEOUT_SECONDS',
+    default=5,
+)
+PAYMENTS_SERVICE_URL = env(
+    'PAYMENTS_SERVICE_URL',
+    default='http://127.0.0.1:8007/api/v1/payments',
+)
+PAYMENTS_SERVICE_TIMEOUT_SECONDS = env.int(
+    'PAYMENTS_SERVICE_TIMEOUT_SECONDS',
+    default=10,
+)
+INTERNAL_SERVICE_TOKEN = env('INTERNAL_SERVICE_TOKEN', default='')
+
 # ─────────────────────────────────────────
 # CORS
 # ─────────────────────────────────────────
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
+    "http://127.0.0.1:5173",
     "http://localhost:3000",
 ]
+CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
 
 CORS_ALLOW_CREDENTIALS = True
 

@@ -1,16 +1,20 @@
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import (
+    api_view,
+    authentication_classes,
+    permission_classes,
+)
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from datetime import timedelta
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from django.db.models import Sum
-from django.db.models.functions import TruncMonth
 from .models import Pedido, EstadoPedido, HistorialEstadoPedido, DetallePedido
-from catalogo.models import Producto
 from usuarios.models import Usuario, Rol
 from .serializers import PedidoListSerializer, PedidoDetalleSerializer
+from integrations.catalogo import get_catalog_products, get_catalog_summary
+from integrations.identity import RemoteIdentityAuthentication, get_identity_dashboard
+from integrations.pedidos import get_orders_dashboard
 
 
 # ─── CLIENTE: Mis Pedidos ─────────────────────────────────────────────────────
@@ -29,17 +33,27 @@ def mis_pedidos(request):
     except AttributeError:
         return Response({'pedidos': [], 'total': 0})
 
-    pedidos = (
+    pedidos = list(
         Pedido.objects
         .filter(cliente=cliente)
         .select_related('estado', 'direccion__ciudad__departamento')
-        .prefetch_related('detalles__producto__imagenes')
+        .prefetch_related('detalles')
         .order_by('-fecha_pedido')
     )
+    product_ids = {
+        detalle.producto
+        for pedido in pedidos
+        for detalle in pedido.detalles.all()
+    }
+    catalog_products = get_catalog_products(product_ids)
     # PedidoDetalleSerializer hereda PedidoListSerializer y agrega:
     #   detalles, direccion_completa, notas
-    serializer = PedidoDetalleSerializer(pedidos, many=True)
-    return Response({'pedidos': serializer.data, 'total': pedidos.count()})
+    serializer = PedidoDetalleSerializer(
+        pedidos,
+        many=True,
+        context={'catalog_products': catalog_products},
+    )
+    return Response({'pedidos': serializer.data, 'total': len(pedidos)})
 
 
 @api_view(['GET'])
@@ -61,11 +75,19 @@ def detalle_pedido(request, pedido_id):
     pedido = get_object_or_404(
         Pedido.objects
         .select_related('estado', 'direccion__ciudad__departamento')
-        .prefetch_related('detalles__producto__imagenes'),
+        .prefetch_related('detalles'),
         pedido_id=pedido_id,
         cliente=cliente,
     )
-    return Response(PedidoDetalleSerializer(pedido).data)
+    catalog_products = get_catalog_products(
+        detalle.producto for detalle in pedido.detalles.all()
+    )
+    return Response(
+        PedidoDetalleSerializer(
+            pedido,
+            context={'catalog_products': catalog_products},
+        ).data
+    )
 
 
 # ─── ADMIN: Gestión de Pedidos ────────────────────────────────────────────────
@@ -86,7 +108,7 @@ def admin_pedidos_list(request):
     queryset = (
         Pedido.objects
         .select_related('estado', 'cliente__usuario', 'direccion__ciudad')
-        .prefetch_related('detalles__producto')
+        .prefetch_related('detalles')
         .order_by('-fecha_pedido')
     )
 
@@ -174,6 +196,7 @@ def admin_estados_list(request):
     return Response(list(estados))
 
 @api_view(['GET'])
+@authentication_classes([RemoteIdentityAuthentication])
 @permission_classes([IsAuthenticated])
 def admin_dashboard(request):
     # GET /api/v1/admin/dashboard/
@@ -184,46 +207,10 @@ def admin_dashboard(request):
     ):
         return Response({'detail': 'No autorizado.'}, status=status.HTTP_403_FORBIDDEN)
 
-    now = timezone.now()
-    start_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    start_next_month = (start_month + timedelta(days=32)).replace(day=1)
-    start_prev_month = (start_month - timedelta(days=1)).replace(day=1)
-
-    pedidos_mes = Pedido.objects.filter(
-        fecha_pedido__gte=start_month,
-        fecha_pedido__lt=start_next_month,
-    )
-    pedidos_prev = Pedido.objects.filter(
-        fecha_pedido__gte=start_prev_month,
-        fecha_pedido__lt=start_month,
-    )
-
-    pedidos_mes_count = pedidos_mes.count()
-    pedidos_prev_count = pedidos_prev.count()
-
-    ingresos_mes = pedidos_mes.aggregate(total=Sum('total'))['total'] or 0
-    ingresos_prev = pedidos_prev.aggregate(total=Sum('total'))['total'] or 0
-
-    productos_activos = Producto.objects.filter(activo=True).count()
-    clientes_total = Usuario.objects.filter(rol__nombre=Rol.CLIENTE).count()
-
-    clientes_mes = Usuario.objects.filter(
-        rol__nombre=Rol.CLIENTE,
-        fecha_registro__gte=start_month,
-        fecha_registro__lt=start_next_month,
-    ).count()
-    clientes_prev = Usuario.objects.filter(
-        rol__nombre=Rol.CLIENTE,
-        fecha_registro__gte=start_prev_month,
-        fecha_registro__lt=start_month,
-    ).count()
-
-    def pct_delta(actual, prev):
-        if prev == 0:
-            return '+100%' if actual > 0 else '0'
-        diff = (actual - prev) / prev * 100
-        sign = '+' if diff > 0 else ''
-        return f"{sign}{diff:.0f}%"
+    orders_dashboard = get_orders_dashboard()
+    identity_dashboard = get_identity_dashboard()
+    catalog_summary = get_catalog_summary()
+    productos_activos = catalog_summary['productos_activos']
 
     def abs_delta(actual, prev):
         diff = actual - prev
@@ -233,13 +220,13 @@ def admin_dashboard(request):
     metrics = {
         'pedidos_mes': {
             'label': 'Pedidos este mes',
-            'value': pedidos_mes_count,
-            'delta': pct_delta(pedidos_mes_count, pedidos_prev_count),
+            'value': orders_dashboard['pedidos_mes_count'],
+            'delta': orders_dashboard['pct_pedidos'],
         },
         'ingresos_mes': {
             'label': 'Ingresos (COP)',
-            'value': float(ingresos_mes),
-            'delta': pct_delta(float(ingresos_mes), float(ingresos_prev)),
+            'value': orders_dashboard['ingresos_mes'],
+            'delta': orders_dashboard['pct_ingresos'],
         },
         'productos_activos': {
             'label': 'Productos activos',
@@ -248,89 +235,21 @@ def admin_dashboard(request):
         },
         'clientes': {
             'label': 'Clientes',
-            'value': clientes_total,
-            'delta': abs_delta(clientes_mes, clientes_prev),
+            'value': identity_dashboard['total_clientes'],
+            'delta': abs_delta(
+                identity_dashboard['clientes_mes'],
+                identity_dashboard['clientes_mes_anterior'],
+            ),
         },
     }
 
-    # Ventas ultimos 6 meses
-    def add_months(dt, months):
-        month = dt.month - 1 + months
-        year = dt.year + month // 12
-        month = month % 12 + 1
-        return dt.replace(year=year, month=month, day=1, hour=0, minute=0, second=0, microsecond=0)
-
-    start_6 = add_months(start_month, -5)
-    ventas_qs = (
-        Pedido.objects
-        .filter(fecha_pedido__gte=start_6, fecha_pedido__lt=start_next_month)
-        .annotate(mes=TruncMonth('fecha_pedido'))
-        .values('mes')
-        .annotate(ventas=Sum('total'))
-        .order_by('mes')
-    )
-    ventas_map = {row['mes'].date(): float(row['ventas'] or 0) for row in ventas_qs}
-
-    meses_labels = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
-                    'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
-    ventas_mes = []
-    cursor = start_6
-    for _ in range(6):
-        key = cursor.date()
-        ventas_mes.append({
-            'mes': meses_labels[cursor.month - 1],
-            'ventas': ventas_map.get(key, 0),
-        })
-        cursor = add_months(cursor, 1)
-
-    # Pedidos recientes
-    pedidos_recientes = (
-        Pedido.objects
-        .select_related('cliente__usuario', 'estado')
-        .order_by('-fecha_pedido')[:5]
-    )
-    pedidos_data = [
-        {
-            'id': f"PED-{p.pedido_id:03d}",
-            'cliente': p.cliente.usuario.nombre,
-            'total': float(p.total),
-            'estado': p.estado.nombre,
-            'fecha': p.fecha_pedido,
-        }
-        for p in pedidos_recientes
-    ]
-
-    # Top productos por unidades
-    top_qs = (
-        DetallePedido.objects
-        .values('producto__nombre')
-        .annotate(ventas=Sum('cantidad'), ingresos=Sum('precio_total'))
-        .order_by('-ventas')[:4]
-    )
-    top_productos = [
-        {
-            'nombre': row['producto__nombre'],
-            'ventas': int(row['ventas'] or 0),
-            'ingresos': float(row['ingresos'] or 0),
-        }
-        for row in top_qs
-    ]
-
-    # Alertas basicas
-    pendientes_48h = Pedido.objects.filter(
-        estado__nombre='Pendiente de preparación',
-        fecha_pedido__lt=now - timedelta(hours=48),
-    ).count()
-
-    sin_imagen = Producto.objects.filter(activo=True).exclude(
-        imagenes__es_principal=True
-    ).distinct().count()
+    sin_imagen = catalog_summary['productos_sin_imagen_principal']
 
     alertas = []
-    if pendientes_48h:
+    if orders_dashboard['pendientes_48h']:
         alertas.append({
             'tipo': 'warning',
-            'msg': f"{pendientes_48h} pedidos llevan mas de 48h en 'Pendiente de preparacion'",
+            'msg': f"{orders_dashboard['pendientes_48h']} pedidos llevan mas de 48h en 'Pendiente de preparacion'",
         })
     if sin_imagen:
         alertas.append({
@@ -338,13 +257,11 @@ def admin_dashboard(request):
             'msg': f"{sin_imagen} productos activos sin imagen principal",
         })
 
-    periodo_label = f"{meses_labels[start_month.month - 1]} {start_month.year}"
-
     return Response({
-        'periodo_label': periodo_label,
+        'periodo_label': orders_dashboard['periodo_label'],
         'metrics': metrics,
-        'ventas_mes': ventas_mes,
-        'pedidos_recientes': pedidos_data,
-        'top_productos': top_productos,
+        'ventas_mes': orders_dashboard['ventas_mes'],
+        'pedidos_recientes': orders_dashboard['pedidos_recientes'],
+        'top_productos': orders_dashboard['top_productos'],
         'alertas': alertas,
     })

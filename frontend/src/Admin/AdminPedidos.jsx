@@ -11,50 +11,21 @@ const COLOR_ESTADO = {
   'Enviado':                  '#8fc263',
 }
 
-const FAKE_ESTADOS = [
-  { estado_id: 1, nombre: 'Pendiente de preparación' },
-  { estado_id: 2, nombre: 'Preparado' },
-  { estado_id: 3, nombre: 'Enviado' },
-]
+const ESTADO_SIGUIENTE = {
+  'Pendiente de preparación': 'Preparado',
+  'Preparado': 'Enviado',
+}
 
-const FAKE_PEDIDOS = [
-  {
-    pedido_id: 501,
-    fecha_pedido: '2026-05-01T15:20:00Z',
-    total: '185000',
-    estado_id: 1,
-    estado_nombre: 'Pendiente de preparación',
-    cliente_nombre: 'Daniela Pardo',
-    cliente_email: 'daniela.pardo@demo.com',
-    ciudad: 'Bogota',
-    num_items: 2,
-  },
-  {
-    pedido_id: 502,
-    fecha_pedido: '2026-05-03T09:10:00Z',
-    total: '92000',
-    estado_id: 2,
-    estado_nombre: 'Preparado',
-    cliente_nombre: 'Miguel Torres',
-    cliente_email: 'miguel.torres@demo.com',
-    ciudad: 'Medellin',
-    num_items: 1,
-  },
-  {
-    pedido_id: 503,
-    fecha_pedido: '2026-05-06T18:40:00Z',
-    total: '248000',
-    estado_id: 3,
-    estado_nombre: 'Enviado',
-    cliente_nombre: 'Laura Cardenas',
-    cliente_email: 'laura.cardenas@demo.com',
-    ciudad: 'Cali',
-    num_items: 3,
-  },
-]
+function getEstadosSiguientes(pedido, estados) {
+  const siguiente = ESTADO_SIGUIENTE[pedido.estado_nombre]
+  return estados.filter(e => e.nombre === siguiente)
+}
+
 function ModalDetalle({ pedido, estados, onCerrar, onCambiarEstado }) {
   const [estadoId, setEstadoId] = useState(pedido.estado_id)
   const [guardando, setGuardando] = useState(false)
+  const estadosSiguientes = getEstadosSiguientes(pedido, estados)
+  const incluirEstadoActual = !estadosSiguientes.some(e => e.estado_id === pedido.estado_id)
 
   const cambiar = async () => {
     if (estadoId === pedido.estado_id) return
@@ -88,7 +59,10 @@ function ModalDetalle({ pedido, estados, onCerrar, onCambiarEstado }) {
               onChange={e => setEstadoId(Number(e.target.value))}
               style={{ borderColor: COLOR_ESTADO[estados.find(e => e.estado_id === estadoId)?.nombre] }}
             >
-              {estados.map(e => (
+              {incluirEstadoActual && (
+                <option value={pedido.estado_id} disabled>{pedido.estado_nombre}</option>
+              )}
+              {estadosSiguientes.map(e => (
                 <option key={e.estado_id} value={e.estado_id}>{e.nombre}</option>
               ))}
             </select>
@@ -156,7 +130,7 @@ export default function AdminPedidos() {
       const data = await res.json()
       setEstados(data)
     } catch {
-      setEstados(FAKE_ESTADOS)
+      setEstados([])
     }
   }, [token])
 
@@ -175,9 +149,9 @@ export default function AdminPedidos() {
       setTotal(data.total ?? 0)
     } catch {
       setSinConexion(true)
-      setPedidos(FAKE_PEDIDOS)
+      setPedidos([])
       setPages(1)
-      setTotal(FAKE_PEDIDOS.length)
+      setTotal(0)
     }
     finally  { setLoading(false) }
   }, [token, page, search, filtroEst])
@@ -264,8 +238,11 @@ export default function AdminPedidos() {
               <tbody>
                 {pedidos.length === 0 ? (
                   <tr><td colSpan={8} className={styles.empty}>{sinConexion ? 'Sin conexión al backend' : 'Sin resultados'}</td></tr>
-                ) : pedidos.map(p => (
-                  <tr key={p.pedido_id}>
+                ) : pedidos.map(p => {
+                  const siguientes = getEstadosSiguientes(p, estados)
+                  const incluirActual = !siguientes.some(e => e.estado_id === p.estado_id)
+                  return (
+                    <tr key={p.pedido_id}>
                     <td className={styles.idCell}>#{p.pedido_id}</td>
                     <td>
                       <div className={styles.clienteCell}>
@@ -284,7 +261,8 @@ export default function AdminPedidos() {
                         style={{ '--color': COLOR_ESTADO[p.estado_nombre] ?? '#888' }}
                         onChange={e => cambiarEstado(p.pedido_id, Number(e.target.value))}
                       >
-                        {estados.map(e => <option key={e.estado_id} value={e.estado_id}>{e.nombre}</option>)}
+                        {incluirActual && <option value={p.estado_id} disabled>{p.estado_nombre}</option>}
+                        {siguientes.map(e => <option key={e.estado_id} value={e.estado_id}>{e.nombre}</option>)}
                       </select>
                     </td>
                     <td>
@@ -293,7 +271,8 @@ export default function AdminPedidos() {
                       </button>
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -320,9 +299,6 @@ export default function AdminPedidos() {
     </div>
   )
 }
-
-
-
 
 
 

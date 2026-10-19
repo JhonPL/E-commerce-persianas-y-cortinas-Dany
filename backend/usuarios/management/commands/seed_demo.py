@@ -1,8 +1,9 @@
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 import random
 
-from django.core.management.base import BaseCommand
-from django.utils import timezone
+import requests
+from django.conf import settings
+from django.core.management.base import BaseCommand, CommandError
 
 from usuarios.models import Usuario, Cliente, Rol
 from pedidos.models import (
@@ -14,11 +15,10 @@ from pedidos.models import (
     DetallePedido,
     HistorialEstadoPedido,
 )
-from catalogo.models import Categoria, Producto, ImagenProducto
 
 
 class Command(BaseCommand):
-    help = 'Seed demo data for usuarios and pedidos without external dependencies.'
+    help = 'Seed demo data for usuarios and pedidos using catalog-service products.'
 
     def add_arguments(self, parser):
         parser.add_argument('--users', type=int, default=10, help='Number of users to create')
@@ -29,6 +29,12 @@ class Command(BaseCommand):
         random.seed(options['seed'])
         num_users = options['users']
         num_orders = options['orders']
+        productos = self.get_catalog_products()
+        if not productos:
+            raise CommandError(
+                'El catálogo no tiene productos activos. Ejecuta '
+                '"python manage.py seed_demo_catalog" en catalog-service primero.'
+            )
 
         admin_role, _ = Rol.objects.get_or_create(nombre=Rol.ADMIN)
         client_role, _ = Rol.objects.get_or_create(nombre=Rol.CLIENTE)
@@ -40,31 +46,6 @@ class Command(BaseCommand):
         ]
         for nombre in estados:
             EstadoPedido.objects.get_or_create(nombre=nombre)
-
-        categoria, _ = Categoria.objects.get_or_create(
-            nombre='Persianas',
-            defaults={'descripcion': 'Categoria demo', 'activo': True},
-        )
-
-        productos = []
-        if Producto.objects.count() == 0:
-            for i in range(1, 6):
-                prod = Producto.objects.create(
-                    nombre=f'Persiana Demo {i}',
-                    descripcion='Producto de prueba',
-                    precio_m2=Decimal('25000.00') + (i * 1000),
-                    categoria=categoria,
-                    activo=True,
-                )
-                ImagenProducto.objects.create(
-                    producto=prod,
-                    url='https://via.placeholder.com/300x200.png?text=Producto',
-                    es_principal=True,
-                    orden=0,
-                )
-                productos.append(prod)
-        else:
-            productos = list(Producto.objects.all()[:5])
 
         departamentos = ['Cundinamarca', 'Antioquia', 'Valle']
         ciudades_map = {
@@ -166,12 +147,12 @@ class Command(BaseCommand):
                 ancho = Decimal(random.choice([80, 100, 120, 140]))
                 alto = Decimal(random.choice([120, 150, 180, 200]))
                 area = (ancho * alto) / Decimal('10000')
-                precio_m2 = Decimal(prod.precio_m2)
+                precio_m2 = Decimal(str(prod['precio_m2']))
                 precio_total = (area * precio_m2).quantize(Decimal('0.01'))
                 total += precio_total
                 DetallePedido.objects.create(
                     pedido=pedido,
-                    producto=prod,
+                    producto=prod['producto_id'],
                     cantidad=1,
                     ancho_cm=ancho,
                     alto_cm=alto,
@@ -195,3 +176,44 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(
             f'Seed complete: usuarios={len(usuarios)}, clientes={len(clientes)}, pedidos={created_orders}'
         ))
+
+    def get_catalog_products(self):
+        endpoint = settings.CATALOGO_SERVICE_URL.rstrip('/') + '/productos/'
+        try:
+            response = requests.get(
+                endpoint,
+                params={'page': 1, 'page_size': 100},
+                timeout=settings.CATALOGO_SERVICE_TIMEOUT_SECONDS,
+            )
+            response.raise_for_status()
+            payload = response.json()
+        except requests.RequestException as exc:
+            raise CommandError(
+                'No fue posible consultar catalog-service.'
+            ) from exc
+        except ValueError as exc:
+            raise CommandError(
+                'catalog-service devolvió una respuesta inválida.'
+            ) from exc
+
+        if isinstance(payload, list):
+            products = payload
+        elif isinstance(payload, dict):
+            products = payload.get('results')
+        else:
+            products = None
+        if not isinstance(products, list):
+            raise CommandError('catalog-service devolvió una lista inválida.')
+
+        try:
+            return [
+                {
+                    'producto_id': int(product['producto_id']),
+                    'precio_m2': Decimal(str(product['precio_m2'])),
+                }
+                for product in products[:5]
+            ]
+        except (KeyError, TypeError, ValueError, InvalidOperation) as exc:
+            raise CommandError(
+                'catalog-service devolvió productos inválidos.'
+            ) from exc

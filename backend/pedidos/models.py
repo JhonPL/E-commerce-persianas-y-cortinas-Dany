@@ -1,6 +1,5 @@
 from django.db import models
 from usuarios.models import Usuario, Cliente
-from catalogo.models import Producto
 
 
 class Departamento(models.Model):
@@ -68,7 +67,7 @@ class DetallePedido(models.Model):
     detalle_id   = models.AutoField(primary_key=True)
     pedido       = models.ForeignKey(Pedido, on_delete=models.CASCADE,
                                      related_name='detalles')
-    producto     = models.ForeignKey(Producto, on_delete=models.PROTECT)
+    producto     = models.PositiveIntegerField(db_column='producto_id')
     cantidad     = models.IntegerField(default=1)
     ancho_cm     = models.DecimalField(max_digits=8,  decimal_places=2)
     alto_cm      = models.DecimalField(max_digits=8,  decimal_places=2)

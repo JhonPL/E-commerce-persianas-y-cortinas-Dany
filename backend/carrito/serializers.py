@@ -1,19 +1,18 @@
 # backend/carrito/serializers.py
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal
 from rest_framework import serializers
 from .models import CarritoItem
-from catalogo.serializers import ProductoListSerializer
+from integrations.catalogo import get_catalog_products
 
 
 class CarritoItemSerializer(serializers.ModelSerializer):
-    producto_detalle = ProductoListSerializer(source='producto', read_only=True)
+    producto = serializers.IntegerField(min_value=1)
+    producto_detalle = serializers.SerializerMethodField()
     subtotal         = serializers.SerializerMethodField()
     # Exponer también campos sueltos que usa el frontend
-    producto_id      = serializers.IntegerField(source='producto.producto_id', read_only=True)
-    nombre           = serializers.CharField(source='producto.nombre', read_only=True)
-    precio_m2        = serializers.DecimalField(
-        source='producto.precio_m2', max_digits=10, decimal_places=2, read_only=True
-    )
+    producto_id      = serializers.IntegerField(source='producto', read_only=True)
+    nombre           = serializers.SerializerMethodField()
+    precio_m2        = serializers.SerializerMethodField()
     imagen_principal = serializers.SerializerMethodField()
 
     class Meta:
@@ -27,12 +26,31 @@ class CarritoItemSerializer(serializers.ModelSerializer):
         read_only_fields = ['area_m2', 'item_id']
 
     def get_subtotal(self, obj):
-        return obj.get_subtotal()
+        product = self._get_product(obj.producto)
+        return obj.get_subtotal(product['precio_m2'])
+
+    def get_producto_detalle(self, obj):
+        return self._get_product(obj.producto)
+
+    def get_nombre(self, obj):
+        return self._get_product(obj.producto)['nombre']
+
+    def get_precio_m2(self, obj):
+        return self._get_product(obj.producto)['precio_m2']
 
     def get_imagen_principal(self, obj):
-        img = obj.producto.imagenes.filter(es_principal=True).first() \
-           or obj.producto.imagenes.first()
-        return img.url if img else None
+        return self._get_product(obj.producto)['imagen_principal']
+
+    def _get_product(self, product_id):
+        products = self.context.get('catalog_products')
+        if products is None:
+            products = get_catalog_products([product_id])
+        product = products.get(product_id)
+        if product is None:
+            raise serializers.ValidationError(
+                f"El producto {product_id} ya no está disponible en el catálogo."
+            )
+        return product
 
     def validate(self, data):
         ancho = Decimal(str(data.get('ancho_cm', 0)))
@@ -40,6 +58,14 @@ class CarritoItemSerializer(serializers.ModelSerializer):
         if ancho <= 0 or alto <= 0:
             raise serializers.ValidationError("Las medidas deben ser mayores a 0.")
         return data
+
+    def validate_producto(self, value):
+        products = get_catalog_products([value], require_all=False)
+        if value not in products:
+            raise serializers.ValidationError(
+                "El producto seleccionado no existe en el catálogo."
+            )
+        return value
 
     def create(self, validated_data):
         usuario = self.context['request'].user

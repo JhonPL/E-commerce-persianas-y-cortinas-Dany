@@ -3,8 +3,8 @@ from .models import Pedido, DetallePedido
 
 
 class DetalleItemSerializer(serializers.ModelSerializer):
-    producto_id      = serializers.IntegerField(source='producto.producto_id')
-    nombre           = serializers.CharField(source='producto.nombre')
+    producto_id      = serializers.IntegerField(source='producto', read_only=True)
+    nombre           = serializers.SerializerMethodField()
     imagen_principal = serializers.SerializerMethodField()
 
     class Meta:
@@ -16,11 +16,19 @@ class DetalleItemSerializer(serializers.ModelSerializer):
         ]
 
     def get_imagen_principal(self, obj):
-        img = (
-            obj.producto.imagenes.filter(es_principal=True).first()
-            or obj.producto.imagenes.first()
-        )
-        return img.url if img else None
+        return self._get_product(obj.producto)['imagen_principal']
+
+    def get_nombre(self, obj):
+        return self._get_product(obj.producto)['nombre']
+
+    def _get_product(self, product_id):
+        products = self.context.get('catalog_products', {})
+        product = products.get(product_id)
+        if product is None:
+            raise serializers.ValidationError(
+                f"El producto {product_id} no está disponible en el catálogo."
+            )
+        return product
 
 
 class PedidoListSerializer(serializers.ModelSerializer):

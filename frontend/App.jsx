@@ -11,6 +11,7 @@ import Tienda from './src/pages/Tienda/Tienda'
 import Detalle from './src/pages/Detalle/Detalle'
 import Contacto from './src/pages/Contacto/Contacto'
 import MisPedidos from './src/pages/MisPedidos/MisPedidos'
+import Checkout from './src/pages/Checkout/Checkout'
 import Auth from './src/Auth/Auth'
 import GoogleCallback from './src/Auth/GoogleCallback'
 import AdminLayout from './src/Admin/AdminLayout'
@@ -65,6 +66,9 @@ export default function App() {
             <Route path="/mis-pedidos" element={
               <RequireAuth><Layout><MisPedidos /></Layout></RequireAuth>
             } />
+            <Route path="/checkout" element={
+              <RequireAuth><Layout><Checkout /></Layout></RequireAuth>
+            } />
  
             {/* Auth */}
             <Route path="/login" element={<Auth />} />
@@ -91,6 +95,5 @@ export default function App() {
     </BrowserRouter>
   )
 }
-
 
 
