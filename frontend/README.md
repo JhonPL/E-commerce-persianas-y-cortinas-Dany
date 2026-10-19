@@ -133,6 +133,7 @@ src/
 | `/contacto` | `Contacto` | Público |
 | `/login` | `Auth` | Público (sin Navbar/Footer) |
 | `/mis-pedidos` | `MisPedidos` | `RequireAuth` |
+| `/checkout` | `Checkout` | `RequireAuth` |
 | `/admin` | `AdminDashboard` | `RequireAdmin` |
 | `/admin/productos` | `AdminProductos` | `RequireAdmin` |
 | `/admin/pedidos` | `AdminPedidos` | `RequireAdmin` |
@@ -175,7 +176,7 @@ const { user, token, loading, error, login, register, logout, clearError } = use
 | `logout()` | Limpia el estado. En `AdminLayout` usa `window.location.href = '/'` para limpiar el historial del navegador |
 | `clearError()` | Limpia el mensaje de error |
 
-> **Actualmente:** `login` y `register` usan mocks con 800 ms de delay simulado. Ver sección [Pendientes](#14-pendientes--conexión-con-backend).
+La autenticación se realiza contra el servicio de identidad a través del gateway local.
 
 ---
 
@@ -250,7 +251,12 @@ Historial de pedidos del cliente autenticado:
 - Cards colapsables por pedido con barra de progreso de 3 estados
 - Tabla de ítems con medidas y precios
 - Estado vacío con enlace a la tienda
-- **TODO:** conectar a `GET /api/mis-pedidos`
+
+### Checkout (`/checkout`) — RequireAuth
+- El servicio de pedidos calcula y persiste el pedido usando el carrito y catálogo.
+- El simulador permite aprobar o rechazar la transacción sin datos de tarjeta ni cobros reales.
+- Al rechazar, el historial muestra el pedido como rechazado y el carrito se conserva.
+- Al aprobar, se vacía el carrito y el pedido queda disponible para su gestión administrativa.
 
 ### NotFound (`*`)
 Página 404 con animación y botones de navegación (inicio, tienda, volver atrás).
@@ -327,16 +333,13 @@ CRUD completo de productos.
 
 ---
 
-## 11. Usuarios mock para desarrollo
+## 11. Integración local
 
-Mientras no esté conectado el backend, `AuthContext` simula la autenticación con estos datos:
-
-| Email | Contraseña | Rol | Acceso |
-|-------|-----------|-----|--------|
-| `admin@cortinasydany.com` | `Admin2024$` | admin | Panel administrador |
-| Cualquier email válido | `Cliente123$` | cliente | Tienda + Mis Pedidos |
-
-> El registro también funciona en mock — crea un usuario cliente temporal en memoria que se pierde al recargar la página.
+El frontend envía sus solicitudes al gateway definido por `VITE_API_URL` en el
+`.env` local; desde allí se enrutan a identidad, catálogo, carrito, pedidos,
+notificaciones, facturación y pagos simulados. Las credenciales de servicios y
+de base de datos se mantienen fuera del repositorio, en la configuración local
+protegida de Windows.
 
 ---
 
@@ -378,25 +381,14 @@ yarn add react-is
 
 ---
 
-## 14. Pendientes — Conexión con backend
+## 14. Validación local
 
-Todos los puntos de integración tienen un comentario `// TODO` en el código fuente.
+Con el frontend, el gateway y los siete servicios iniciados localmente, ejecuta
+`.\run-e2e-local.ps1`. El script crea un administrador temporal, corre las
+pruebas Playwright de persistencia del carrito, checkout aprobado/rechazado y
+exclusión de pedidos rechazados en administración, y elimina los datos
+asociados a esa ejecución. No inicia ni necesita el backend legacy.
 
-| Archivo | Función / sección | Endpoint esperado |
-|---------|------------------|-------------------|
-| `AuthContext.jsx` | `login()` | `POST /api/auth/login` |
-| `AuthContext.jsx` | `register()` | `POST /api/auth/register` |
-| `AuthContext.jsx` | OAuth Google | `GET /api/auth/google` |
-| `MisPedidos.jsx` | carga de pedidos | `GET /api/mis-pedidos` |
-| `Contacto.jsx` | envío formulario | `POST /api/contacto` |
-| `AdminProductos.jsx` | listar productos | `GET /api/admin/productos` |
-| `AdminProductos.jsx` | crear producto | `POST /api/admin/productos` |
-| `AdminProductos.jsx` | editar producto | `PUT /api/admin/productos/:id` |
-| `AdminProductos.jsx` | eliminar producto | `DELETE /api/admin/productos/:id` |
-| `AdminPedidos.jsx` | listar pedidos | `GET /api/admin/pedidos` |
-| `AdminPedidos.jsx` | cambiar estado | `PATCH /api/admin/pedidos/:id/estado` |
-| `AdminUsuarios.jsx` | listar usuarios | `GET /api/admin/usuarios` |
-| `AdminUsuarios.jsx` | activar/desactivar | `PATCH /api/admin/usuarios/:id/activo` |
-| `Tienda.jsx` / `Home.jsx` | catálogo público | `GET /api/productos` |
-| `Detalle.jsx` | detalle producto | `GET /api/productos/:id` |
-| `CartDrawer.jsx` | ir a checkout | `POST /api/checkout` *(página pendiente)* |
+`npm run lint` y `npm run build` validan el frontend de forma independiente.
+El formulario de contacto todavía muestra una confirmación simulada y no envía
+mensajes a un servicio; su integración no forma parte del flujo de compra.

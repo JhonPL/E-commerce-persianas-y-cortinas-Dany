@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { createElement, useState } from 'react'
 import { MapPin, Phone, Mail, Clock, Send, CheckCircle, MessageCircle } from 'lucide-react'
 import styles from './Contacto.module.css'
 
@@ -66,9 +66,9 @@ export default function Contacto() {
                 { icon: Phone,   label: 'Teléfono',   value: '+57 312 355 8218' },
                 { icon: Mail,    label: 'Correo',     value: 'percortinasdany@gmail.com' },
                 { icon: Clock,   label: 'Horario',    value: 'Lun – Sáb: 8:00 am – 6:00 pm' },
-              ].map(({ icon: Icon, label, value }) => (
+              ].map(({ icon, label, value }) => (
                 <div key={label} className={styles.infoCard}>
-                  <div className={styles.infoCardIcon}><Icon size={18} /></div>
+                  <div className={styles.infoCardIcon}>{createElement(icon, { size: 18 })}</div>
                   <div>
                     <span className={styles.infoCardLabel}>{label}</span>
                     <span className={styles.infoCardValue}>{value}</span>

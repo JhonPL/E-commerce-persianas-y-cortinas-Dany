@@ -47,7 +47,13 @@ foreach ($property in $config.PSObject.Properties) {
 
 if (-not $env:DJANGO_SECRET_KEY) {
     $bytes = [byte[]]::new(48)
-    [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+    $random = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    try {
+        $random.GetBytes($bytes)
+    }
+    finally {
+        $random.Dispose()
+    }
     $env:DJANGO_SECRET_KEY = [Convert]::ToBase64String($bytes)
 }
 if (-not $env:DJANGO_DEBUG) {

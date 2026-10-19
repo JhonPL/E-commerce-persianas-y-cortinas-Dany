@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { createElement, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Package, ShoppingBag, Users, Tag,
@@ -60,7 +60,7 @@ export default function AdminLayout() {
 
         {/* Nav links */}
         <nav className={styles.sidebarNav}>
-          {NAV.map(({ to, icon: Icon, label, end }) => (
+          {NAV.map(({ to, icon, label, end }) => (
             <NavLink
               key={to}
               to={to}
@@ -70,7 +70,7 @@ export default function AdminLayout() {
               }
               title={collapsed ? label : undefined}
             >
-              <Icon size={18} className={styles.navIcon} />
+              {createElement(icon, { size: 18, className: styles.navIcon })}
               {!collapsed && <span className={styles.navLabel}>{label}</span>}
               {collapsed && <span className={styles.navTooltip}>{label}</span>}
             </NavLink>

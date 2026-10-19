@@ -1,7 +1,6 @@
 import { useState } from 'react'
-import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { Eye, EyeOff, Mail, Lock, User, AlertCircle, CheckCircle, Ruler, CreditCard, Truck } from 'lucide-react'
-import { useAuth } from '../context/AuthContext'
 import LoginForm from './LoginForm'
 import RegisterForm from './RegisterForm'
 import styles from './Auth.module.css'
