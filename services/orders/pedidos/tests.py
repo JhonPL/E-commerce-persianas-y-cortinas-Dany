@@ -124,6 +124,8 @@ class OrdersServiceTests(APITestCase):
         notification_payload = notification_post.call_args.kwargs["json"]
         self.assertEqual(notification_payload["pedido_id"], self.order.pedido_id)
         self.assertEqual(notification_payload["cliente_email"], self.order.cliente_email)
+        self.assertEqual(notification_payload["nombre_recibe"], "")
+        self.assertIn("Calle 10", notification_payload["direccion"])
         self.assertEqual(
             notification_payload["estado_anterior"],
             EstadoPedido.PENDIENTE,
@@ -186,6 +188,31 @@ class OrdersServiceTests(APITestCase):
                 for order in unpaid_orders
             )
         )
+
+    @patch("pedidos.views.get_catalog_products")
+    def test_admin_can_read_order_detail_but_other_roles_cannot(self, catalog_products):
+        catalog_products.return_value = {
+            21: {
+                "nombre": "Blackout",
+                "imagen_principal": "https://images.test/blackout.jpg",
+            }
+        }
+        admin_client = APIClient()
+        admin_client.force_authenticate(user=RemoteUser(4, "admin"))
+        customer_client = APIClient()
+        customer_client.force_authenticate(user=RemoteUser(29, "cliente"))
+
+        detail = admin_client.get(f"/api/v1/admin/pedidos/{self.order.pk}/")
+        forbidden = customer_client.get(f"/api/v1/admin/pedidos/{self.order.pk}/")
+
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(detail.data["cliente_nombre"], "Cliente Demo")
+        self.assertEqual(
+            detail.data["direccion_completa"],
+            "Calle 10 #20, Centro, Bogota, Cundinamarca",
+        )
+        self.assertEqual(detail.data["detalles"][0]["nombre"], "Blackout")
+        self.assertEqual(forbidden.status_code, 403)
 
     def test_admin_cannot_manage_payment_state_or_unpaid_order(self):
         admin_client = APIClient()
@@ -420,9 +447,9 @@ class CheckoutTests(APITestCase):
             "direccion": {
                 "departamento": "Cundinamarca",
                 "ciudad": "Bogota",
+                "nombre_recibe": "María Pérez",
                 "barrio": "Centro",
-                "calle": "Calle 10",
-                "numero": "20",
+                "calle": "Calle 10 # 20-52, apartamento 301",
             },
             "total": "0.01",
         }
@@ -454,8 +481,7 @@ class CheckoutTests(APITestCase):
             raise_for_status=Mock(),
             json=lambda: {
                 "pedido_id": Pedido.objects.latest("pedido_id").pedido_id,
-                "admin_estado": "omitido",
-                "cliente_estado": "enviado",
+                "admin_estado": "enviado",
             },
         )
 
@@ -468,7 +494,7 @@ class CheckoutTests(APITestCase):
 
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data["total"], "480000.00")
-        self.assertEqual(response.data["notificacion"], "enviado")
+        self.assertNotIn("notificacion", response.data)
         self.assertEqual(Pedido.objects.get().total, Decimal("480000.00"))
         self.assertEqual(
             DetallePedido.objects.get().precio_total,
@@ -478,22 +504,15 @@ class CheckoutTests(APITestCase):
             DetallePedido.objects.get().producto_nombre,
             "Cortina Blackout",
         )
+        self.assertEqual(Direccion.objects.get().nombre_recibe, "María Pérez")
+        self.assertEqual(
+            Direccion.objects.get().calle,
+            "Calle 10 # 20-52, apartamento 301",
+        )
+        self.assertEqual(Direccion.objects.get().numero, "")
         self.assertEqual(response.data["estado"], "Pendiente de pago")
         cart_get.assert_called_once()
-        notification_post.assert_called_once()
-        notification_payload = notification_post.call_args.kwargs["json"]
-        self.assertEqual(notification_payload["cliente_email"], "cliente@example.test")
-        self.assertEqual(notification_payload["detalles"][0]["producto_id"], 21)
-        self.assertEqual(
-            notification_payload["detalles"][0]["producto_nombre"],
-            "Cortina Blackout",
-        )
-        self.assertEqual(
-            notification_post.call_args.kwargs["headers"][
-                "X-Internal-Service-Token"
-            ],
-            "internal-test-token",
-        )
+        notification_post.assert_not_called()
 
     @patch("pedidos.views.requests.get")
     def test_checkout_rejects_an_empty_cart(self, cart_get):
@@ -512,13 +531,35 @@ class CheckoutTests(APITestCase):
         self.assertEqual(response.status_code, 400)
         self.assertFalse(Pedido.objects.exists())
 
+    def test_checkout_requires_recipient_neighborhood_and_complete_address(self):
+        required_fields = ("nombre_recibe", "barrio", "calle")
+        for field in required_fields:
+            with self.subTest(field=field):
+                payload = {
+                    **self.payload,
+                    "direccion": {
+                        key: value
+                        for key, value in self.payload["direccion"].items()
+                        if key != field
+                    },
+                }
+                response = self.client.post(
+                    "/api/v1/pedidos/checkout/",
+                    payload,
+                    format="json",
+                    HTTP_AUTHORIZATION="******",
+                )
+                self.assertEqual(response.status_code, 400)
+                self.assertIn(field, response.data)
+        self.assertFalse(Pedido.objects.exists())
+
     @patch(
         "pedidos.views.requests.post",
         side_effect=requests.ConnectionError("notifications unavailable"),
     )
     @patch("pedidos.views.requests.get")
     @patch("pedidos.views.get_catalog_products")
-    def test_checkout_keeps_order_and_reports_notification_failure(
+    def test_checkout_keeps_order_without_notifying_before_payment(
         self,
         catalog_products,
         cart_get,
@@ -540,12 +581,12 @@ class CheckoutTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(response.data["notificacion"], "fallido")
+        self.assertNotIn("notificacion", response.data)
         self.assertEqual(
             Pedido.objects.filter(cliente_email="cliente@example.test").count(),
             1,
         )
-        notification_post.assert_called_once()
+        notification_post.assert_not_called()
 
 
 @override_settings(INTERNAL_SERVICE_TOKEN="internal-test-token")
@@ -586,7 +627,6 @@ class InternalPaymentResultTests(APITestCase):
                 json=lambda: {
                     "pedido_id": self.order.pedido_id,
                     "admin_estado": "enviado",
-                    "cliente_estado": "enviado",
                     "estado": "enviado",
                 },
             ),

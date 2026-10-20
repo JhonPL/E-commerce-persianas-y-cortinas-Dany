@@ -1,8 +1,7 @@
 # Notification Service
 
-Servicio Django independiente para notificaciones administrativas y su historial
-de entrega. Recibe el evento de pedido aprobado desde el puente de pagos en el
-backend monolítico; el módulo de pagos no se cambia en esta etapa.
+Servicio Django independiente para notificaciones de pedidos y contacto, con
+plantillas HTML de marca y registro de entrega.
 
 ## Configuración
 
@@ -12,9 +11,12 @@ en el gateway y los servicios que lo llaman.
 
 `jhon.paternina302@gmail.com` es exclusivamente la cuenta remitente y de
 autenticación SMTP; no se usa como destinatario de los mensajes del sistema.
-`ADMIN_EMAIL` es el buzón receptor independiente de los administradores
-(actualmente `jhonpaternina2002@gmail.com`). El cliente recibe sus mensajes en
-el correo asociado a su propio pedido o al formulario de contacto. Para Gmail,
+`ADMIN_EMAIL` es el buzón receptor de avisos administrativos y `CONTACT_EMAIL`
+es la dirección que aparece en el pie de los correos (ambos usan el correo
+administrativo si no se configuran por separado). `FRONTEND_URL` determina el
+destino de los botones de seguimiento; usa la URL pública en producción. El
+cliente recibe sus mensajes en el correo asociado a su pedido o al formulario
+de contacto. Para Gmail,
 `EMAIL_HOST_PASSWORD` debe ser una contraseña de aplicación generada para la
 cuenta remitente. Guarda ese secreto únicamente en la configuración local
 protegida o en el gestor de secretos de producción; nunca en el repositorio.
@@ -72,23 +74,28 @@ No se exportó ni importó historial real en este corte.
   se envía al navegador.
 - `POST /api/internal/notificaciones/contacto/` envía al buzón administrativo los
   datos del formulario y configura el correo del cliente como respuesta.
-- `POST /api/internal/notificaciones/pedidos/nuevo/` envía al cliente una
-  confirmación con el nombre de los productos. No avisa al administrador antes
-  de que el pago sea aprobado.
+- La creación de un pedido pendiente no envía correos. Cuando el pago se
+  aprueba, `POST /api/internal/notificaciones/pedidos/` envía un único correo
+  al administrador con el asunto «Nuevo pedido recibido» y todos los detalles
+  de entrega y productos.
 - `POST /api/internal/notificaciones/pedidos/estado/` notifica al cliente cada
   cambio de estado realizado por el administrador. Cada transición se identifica
   con su registro de historial para evitar correos duplicados.
-- `POST /api/internal/notificaciones/pedidos/` informa al administrador del pago
-  aprobado con el resumen y los nombres de los productos; también confirma el
-  resultado al cliente. El texto aclara que el simulador no realiza cobros
-  reales.
+- Los correos de pedido comparten una plantilla adaptable a móvil con el logo
+  integrado en el mensaje, resumen de productos, total, dirección disponible y
+  enlaces a la gestión de pedidos o a la cuenta del cliente. Los estados del
+  servicio se muestran como pedido confirmado, en preparación y en camino.
+  Transportadora, guía y entrega final no se muestran porque la aplicación aún
+  no registra esos datos/estados.
+- `POST /api/internal/notificaciones/pedidos/` informa únicamente al
+  administrador que el pago fue confirmado, con el resumen y los nombres de los
+  productos. El diseño aclara que el simulador no realiza cobros reales.
 - Cuando el servicio de pedidos rechaza un pago vencido después de cinco
   minutos, utiliza la notificación de cambio de estado para informar al cliente.
 - Los correos de pedidos se registran por destinatario y evento para evitar
   reenvíos cuando se repite una solicitud confirmada.
-- Las claves `pedido:{id}:payment-approved` y
-  `pedido:{id}:payment-approved:customer` deduplican por separado el aviso al
-  administrador y la confirmación al cliente cuando se repite el webhook.
+- La clave `pedido:{id}:payment-approved` deduplica el correo administrativo
+  cuando se repite la confirmación del pago.
   Solicitudes duplicadas
   durante un envío activo no envían otro correo; si un proceso deja un intento
   activo por más de 30 segundos, la siguiente solicitud puede recuperarlo. Un

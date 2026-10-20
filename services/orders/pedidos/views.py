@@ -57,14 +57,9 @@ PAYMENT_TIMEOUT = timedelta(minutes=5)
 class CheckoutAddressSerializer(serializers.Serializer):
     departamento = serializers.CharField(max_length=100)
     ciudad = serializers.CharField(max_length=100)
-    barrio = serializers.CharField(max_length=100, required=False, allow_blank=True)
-    calle = serializers.CharField(max_length=150)
-    numero = serializers.CharField(max_length=50)
-    complemento = serializers.CharField(
-        max_length=150,
-        required=False,
-        allow_blank=True,
-    )
+    nombre_recibe = serializers.CharField(max_length=100)
+    barrio = serializers.CharField(max_length=100)
+    calle = serializers.CharField(max_length=150, min_length=5)
 
 
 class CartServiceUnavailable(Exception):
@@ -144,80 +139,6 @@ def _calculate_checkout_items(items):
     return prepared, total.quantize(Decimal("0.01"))
 
 
-def _notify_order_created(order):
-    token = settings.INTERNAL_SERVICE_TOKEN
-    if not token:
-        logger.error(
-            "Order %s was created but its notification token is not configured.",
-            order.pedido_id,
-        )
-        return "fallido"
-
-    address = order.direccion
-    address_text = ", ".join(
-        part
-        for part in (
-            f"{address.calle} {address.numero}",
-            address.barrio,
-            address.ciudad.nombre,
-            address.ciudad.departamento.nombre,
-            address.complemento,
-        )
-        if part
-    )
-    payload = {
-        "pedido_id": order.pedido_id,
-        "cliente_nombre": order.cliente_nombre,
-        "cliente_email": order.cliente_email,
-        "total": str(order.total),
-        "direccion": address_text,
-        "detalles": [
-            {
-                "producto_id": item.producto,
-                "producto_nombre": item.producto_nombre
-                or f"Producto #{item.producto}",
-                "cantidad": item.cantidad,
-                "ancho_cm": str(item.ancho_cm),
-                "alto_cm": str(item.alto_cm),
-                "precio_total": str(item.precio_total),
-            }
-            for item in order.detalles.all()
-        ],
-    }
-
-    try:
-        response = requests.post(
-            (
-                f"{settings.NOTIFICATIONS_SERVICE_URL}"
-                "/api/internal/notificaciones/pedidos/nuevo/"
-            ),
-            json=payload,
-            headers={"X-Internal-Service-Token": token},
-            timeout=settings.SERVICE_TIMEOUT_SECONDS,
-        )
-        response.raise_for_status()
-        result = response.json()
-    except (requests.RequestException, ValueError):
-        logger.exception(
-            "Order %s was created but its notification could not be delivered.",
-            order.pedido_id,
-        )
-        return "fallido"
-
-    if (
-        not isinstance(result, dict)
-        or result.get("pedido_id") != order.pedido_id
-        or result.get("admin_estado") != "omitido"
-        or result.get("cliente_estado") != "enviado"
-    ):
-        logger.error(
-            "Order %s notification delivery was incomplete.",
-            order.pedido_id,
-        )
-        return "fallido"
-    return "enviado"
-
-
 def _notify_payment_approved(order):
     token = settings.INTERNAL_SERVICE_TOKEN
     if not token:
@@ -237,6 +158,17 @@ def _notify_payment_approved(order):
                 "pedido_id": order.pedido_id,
                 "cliente_nombre": order.cliente_nombre,
                 "cliente_email": order.cliente_email,
+                "nombre_recibe": order.direccion.nombre_recibe,
+                "direccion": ", ".join(
+                    part
+                    for part in (
+                        order.direccion.calle,
+                        order.direccion.barrio,
+                        order.direccion.ciudad.nombre,
+                        order.direccion.ciudad.departamento.nombre,
+                    )
+                    if part
+                ),
                 "total": str(order.total),
                 "detalles": [
                     {
@@ -266,7 +198,6 @@ def _notify_payment_approved(order):
         not isinstance(result, dict)
         or result.get("pedido_id") != order.pedido_id
         or result.get("admin_estado") != "enviado"
-        or result.get("cliente_estado") != "enviado"
     ):
         logger.error(
             "Order %s payment notification delivery was incomplete.",
@@ -296,6 +227,17 @@ def _notify_order_status_changed(order, previous_state, history_id):
                 "historial_id": history_id,
                 "cliente_nombre": order.cliente_nombre,
                 "cliente_email": order.cliente_email,
+                "nombre_recibe": order.direccion.nombre_recibe,
+                "direccion": ", ".join(
+                    part
+                    for part in (
+                        order.direccion.calle,
+                        order.direccion.barrio,
+                        order.direccion.ciudad.nombre,
+                        order.direccion.ciudad.departamento.nombre,
+                    )
+                    if part
+                ),
                 "estado_anterior": previous_state,
                 "estado_nuevo": order.estado.nombre,
             },
@@ -416,10 +358,11 @@ def checkout(request):
         address = Direccion.objects.create(
             usuario=request.user.usuario_id,
             ciudad=city,
-            barrio=address_data.get("barrio", "").strip(),
+            nombre_recibe=address_data["nombre_recibe"].strip(),
+            barrio=address_data["barrio"].strip(),
             calle=address_data["calle"].strip(),
-            numero=address_data["numero"].strip(),
-            complemento=address_data.get("complemento", "").strip(),
+            numero="",
+            complemento="",
         )
         pending_state, _ = EstadoPedido.objects.get_or_create(
             nombre="Pendiente de pago",
@@ -445,14 +388,12 @@ def checkout(request):
             notas_cambio="Pedido creado; pago simulado pendiente.",
         )
 
-    notification_status = _notify_order_created(order)
     return Response(
         {
             "pedido_id": order.pedido_id,
             "total": str(order.total),
             "estado": pending_state.nombre,
             "simulacion": True,
-            "notificacion": notification_status,
         },
         status=status.HTTP_201_CREATED,
     )
@@ -508,6 +449,18 @@ def detalle_pedido(request, pedido_id):
         pedido_id=pedido_id,
         usuario=request.user.usuario_id,
     )
+    return Response(_serialize_order_details([order])[0])
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def admin_detalle_pedido(request, pedido_id):
+    if not is_admin(request.user):
+        return Response(
+            {"detail": "No autorizado."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    order = get_object_or_404(_order_queryset(), pedido_id=pedido_id)
     return Response(_serialize_order_details([order])[0])
 
 

@@ -94,6 +94,36 @@ def detalle_pedido(request, pedido_id):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+def admin_detalle_pedido(request, pedido_id):
+    if not (
+        request.user.is_staff
+        or (hasattr(request.user, 'rol') and request.user.rol.nombre == 'admin')
+    ):
+        return Response({'detail': 'No autorizado.'}, status=status.HTTP_403_FORBIDDEN)
+
+    pedido = get_object_or_404(
+        Pedido.objects
+        .select_related(
+            'estado',
+            'cliente__usuario',
+            'direccion__ciudad__departamento',
+        )
+        .prefetch_related('detalles'),
+        pedido_id=pedido_id,
+    )
+    catalog_products = get_catalog_products(
+        detalle.producto for detalle in pedido.detalles.all()
+    )
+    return Response(
+        PedidoDetalleSerializer(
+            pedido,
+            context={'catalog_products': catalog_products},
+        ).data
+    )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def admin_pedidos_list(request):
     """
     GET /api/v1/admin/pedidos/?estado=1&search=&page=1

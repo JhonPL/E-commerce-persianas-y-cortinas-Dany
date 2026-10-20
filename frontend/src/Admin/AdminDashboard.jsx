@@ -34,7 +34,7 @@ const ALERTA_ICONS = {
 }
 
 export default function AdminDashboard() {
-  const { token } = useAuth()
+  const { token, authenticatedFetch } = useAuth()
   const [data, setData] = useState({
     periodo_label: '',
     metrics: {},
@@ -57,9 +57,7 @@ export default function AdminDashboard() {
       setLoading(true)
       setError(false)
       try {
-        const res = await fetch(`${API}/admin/dashboard/`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
+        const res = await authenticatedFetch(`${API}/admin/dashboard/`)
         if (!res.ok) throw new Error('Respuesta no OK')
         const payload = await res.json()
         setData({
@@ -91,7 +89,7 @@ export default function AdminDashboard() {
       setLoading(false)
       setError(true)
     }
-  }, [token])
+  }, [token, authenticatedFetch])
 
   const fmtY = (v) => v >= 1000000 ? `$${(v / 1000000).toFixed(1)}M` : `$${(v / 1000).toFixed(0)}K`
 

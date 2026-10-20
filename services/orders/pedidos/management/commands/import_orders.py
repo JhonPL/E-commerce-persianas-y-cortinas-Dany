@@ -114,6 +114,7 @@ class Command(BaseCommand):
                             direccion_id=item["direccion_id"],
                             usuario=item["usuario_id"],
                             ciudad_id=item["ciudad_id"],
+                            nombre_recibe=item.get("nombre_recibe", ""),
                             barrio=item["barrio"],
                             calle=item["calle"],
                             numero=item["numero"],

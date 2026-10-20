@@ -2,7 +2,7 @@
   width: min(1120px, calc(100% - 32px));
   margin: 0 auto;
   padding: 52px 0 72px;
-  color: #26332d;
+  color: #f7efd3;
 }
 
 .heading {
@@ -13,18 +13,18 @@
 .resultCard h1,
 .resultCard h2 {
   margin: 0 0 10px;
-  color: #213c2e;
+  color: #f7efd3;
 }
 
 .heading > p:last-child,
 .resultCard > p {
-  color: #66736b;
+  color: rgba(247, 239, 211, 0.68);
 }
 
 .eyebrow {
   margin: 0 0 8px;
-  color: #8b6845;
-  font-size: 0.78rem;
+  color: #cfe795;
+  font-size: 0.88rem;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -45,10 +45,10 @@
 .panel,
 .resultCard {
   padding: 24px;
-  border: 1px solid #e5e9e5;
+  border: 1px solid rgba(143, 194, 99, 0.2);
   border-radius: 14px;
-  background: #fff;
-  box-shadow: 0 8px 24px rgb(33 60 46 / 5%);
+  background: #0d0d0d;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 20%);
 }
 
 .panel h2 {
@@ -56,14 +56,14 @@
   align-items: center;
   gap: 9px;
   margin: 0 0 16px;
-  color: #213c2e;
-  font-size: 1.15rem;
+  color: #f7efd3;
+  font-size: 1.25rem;
 }
 
 .customer {
   margin: -7px 0 18px;
-  color: #66736b;
-  font-size: 0.9rem;
+  color: rgba(247, 239, 211, 0.68);
+  font-size: 1rem;
 }
 
 .fields {
@@ -72,29 +72,54 @@
   gap: 14px;
 }
 
+.fullWidth {
+  grid-column: 1 / -1;
+}
+
 .field {
   display: grid;
   gap: 6px;
-  color: #435149;
-  font-size: 0.88rem;
+  color: rgba(247, 239, 211, 0.85);
+  font-size: 1rem;
 }
 
-.field input {
+.field input,
+.field select,
+.field textarea {
   min-width: 0;
   padding: 11px 12px;
-  border: 1px solid #d8dfda;
+  border: 1px solid rgba(143, 194, 99, 0.25);
   border-radius: 8px;
-  color: #26332d;
+  background: #050505;
+  color: #f7efd3;
   font: inherit;
 }
 
-.field input:focus {
-  border-color: #62856f;
-  outline: 2px solid rgb(98 133 111 / 18%);
+.field textarea {
+  resize: vertical;
 }
 
-.field input:disabled {
-  background: #f4f6f4;
+.field small {
+  color: rgba(247, 239, 211, 0.68);
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  border-color: #8fc263;
+  outline: 2px solid rgb(143 194 99 / 18%);
+}
+
+.field input:disabled,
+.field select:disabled,
+.field textarea:disabled {
+  background: #111;
+  color: rgba(247, 239, 211, 0.55);
+}
+
+.field select option {
+  background: #0d0d0d;
+  color: #f7efd3;
 }
 
 .choice {
@@ -102,13 +127,13 @@
   align-items: flex-start;
   gap: 12px;
   padding: 13px 0;
-  border-top: 1px solid #edf0ed;
+  border-top: 1px solid rgba(143, 194, 99, 0.12);
   cursor: pointer;
 }
 
 .choice input {
   margin-top: 4px;
-  accent-color: #315b42;
+  accent-color: #8fc263;
 }
 
 .choice span {
@@ -119,8 +144,8 @@
 .choice small,
 .notice,
 .securityNote {
-  color: #68756d;
-  font-size: 0.87rem;
+  color: rgba(247, 239, 211, 0.65);
+  font-size: 0.95rem;
   line-height: 1.5;
 }
 
@@ -147,24 +172,24 @@
 }
 
 .items li {
-  color: #526057;
-  font-size: 0.9rem;
+  color: rgba(247, 239, 211, 0.8);
+  font-size: 0.98rem;
 }
 
 .items li strong {
-  color: #26332d;
+  color: #f7efd3;
   white-space: nowrap;
 }
 
 .total {
   margin-top: 18px;
   padding-top: 16px;
-  border-top: 1px solid #e5e9e5;
+  border-top: 1px solid rgba(143, 194, 99, 0.15);
   font-weight: 700;
 }
 
 .total strong {
-  color: #213c2e;
+  color: #8fc263;
   white-space: nowrap;
 }
 
@@ -184,12 +209,12 @@
 }
 
 .primaryButton {
-  background: #315b42;
-  color: #fff;
+  background: #8fc263;
+  color: #050505;
 }
 
 .primaryButton:hover {
-  background: #254a34;
+  background: #cfe795;
 }
 
 .primaryButton:disabled {
@@ -198,17 +223,17 @@
 }
 
 .secondaryButton {
-  border: 1px solid #315b42;
-  background: #fff;
-  color: #315b42;
+  border: 1px solid #8fc263;
+  background: #0d0d0d;
+  color: #cfe795;
 }
 
 .errorMessage {
   margin: 0;
   padding: 12px;
   border-radius: 8px;
-  background: #fff0ef;
-  color: #a3312b;
+  background: rgba(163, 49, 43, 0.18);
+  color: #ffaaa4;
 }
 
 .resultCard {
@@ -219,12 +244,12 @@
 
 .successIcon {
   margin-bottom: 14px;
-  color: #37824e;
+  color: #8fc263;
 }
 
 .errorIcon {
   margin-bottom: 14px;
-  color: #ad6241;
+  color: #f59e0b;
 }
 
 .resultCard .primaryButton,

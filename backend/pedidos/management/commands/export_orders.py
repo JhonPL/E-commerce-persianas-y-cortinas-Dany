@@ -85,6 +85,7 @@ class Command(BaseCommand):
                     "direccion_id": item.direccion_id,
                     "usuario_id": item.cliente.usuario_id,
                     "ciudad_id": item.ciudad_id,
+                    "nombre_recibe": item.nombre_recibe,
                     "barrio": item.barrio,
                     "calle": item.calle,
                     "numero": item.numero,

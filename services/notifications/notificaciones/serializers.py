@@ -28,24 +28,17 @@ class PedidoApprovedSerializer(serializers.Serializer):
     pedido_id = serializers.IntegerField(min_value=1)
     cliente_nombre = serializers.CharField(max_length=150)
     cliente_email = serializers.EmailField(max_length=150)
+    nombre_recibe = serializers.CharField(
+        max_length=100,
+        required=False,
+        allow_blank=True,
+    )
+    direccion = serializers.CharField(max_length=500, required=False, allow_blank=True)
     total = serializers.DecimalField(
         max_digits=10,
         decimal_places=2,
         min_value=Decimal("0.00"),
     )
-    detalles = PedidoDetalleNotificationSerializer(many=True, allow_empty=False)
-
-
-class PedidoCreatedSerializer(serializers.Serializer):
-    pedido_id = serializers.IntegerField(min_value=1)
-    cliente_nombre = serializers.CharField(max_length=150)
-    cliente_email = serializers.EmailField(max_length=150)
-    total = serializers.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        min_value=Decimal("0.00"),
-    )
-    direccion = serializers.CharField(max_length=500)
     detalles = PedidoDetalleNotificationSerializer(many=True, allow_empty=False)
 
 
@@ -56,6 +49,12 @@ class PedidoStatusChangedSerializer(serializers.Serializer):
     cliente_email = serializers.EmailField(max_length=150)
     estado_anterior = serializers.CharField(max_length=50)
     estado_nuevo = serializers.CharField(max_length=50)
+    nombre_recibe = serializers.CharField(
+        max_length=100,
+        required=False,
+        allow_blank=True,
+    )
+    direccion = serializers.CharField(max_length=500, required=False, allow_blank=True)
 
 
 class ContactMessageSerializer(serializers.Serializer):

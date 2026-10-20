@@ -73,17 +73,38 @@ class PedidoListSerializer(serializers.ModelSerializer):
 class PedidoDetalleSerializer(PedidoListSerializer):
     detalles = DetalleItemSerializer(many=True, read_only=True)
     direccion_completa = serializers.SerializerMethodField()
+    nombre_recibe = serializers.CharField(
+        source="direccion.nombre_recibe",
+        read_only=True,
+    )
+    departamento = serializers.CharField(
+        source="direccion.ciudad.departamento.nombre",
+        read_only=True,
+    )
 
     class Meta(PedidoListSerializer.Meta):
         fields = PedidoListSerializer.Meta.fields + [
             "detalles",
             "direccion_completa",
+            "departamento",
+            "nombre_recibe",
             "notas",
         ]
 
     def get_direccion_completa(self, obj):
         address = obj.direccion
-        return (
-            f"{address.calle} #{address.numero}, "
-            f"{address.barrio or ''}, {address.ciudad.nombre}"
-        ).strip(", ")
+        parts = [
+            " ".join(
+                part
+                for part in (
+                    address.calle,
+                    f"#{address.numero}" if address.numero else "",
+                )
+                if part
+            ),
+            address.barrio,
+            address.ciudad.nombre,
+            address.ciudad.departamento.nombre,
+            address.complemento,
+        ]
+        return ", ".join(part for part in parts if part)

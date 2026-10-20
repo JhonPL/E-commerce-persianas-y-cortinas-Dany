@@ -16,6 +16,23 @@ const ESTADO_SIGUIENTE = {
   'Preparado': 'Enviado',
 }
 
+const formatDate = value => {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString('es-CO')
+}
+
+const formatNumber = (value, options) => {
+  const number = Number(value)
+  return Number.isFinite(number) ? number.toLocaleString('es-CO', options) : '—'
+}
+
+const formatCurrency = value => {
+  const amount = Number(value)
+  return Number.isFinite(amount)
+    ? `$${amount.toLocaleString('es-CO', { maximumFractionDigits: 0 })}`
+    : '—'
+}
+
 function getEstadosSiguientes(pedido, estados) {
   const siguiente = ESTADO_SIGUIENTE[pedido.estado_nombre]
   return estados.filter(e => e.nombre === siguiente)
@@ -48,7 +65,12 @@ function ModalDetalle({ pedido, estados, onCerrar, onCambiarEstado }) {
             <div><span>Cliente</span><strong>{pedido.cliente_nombre}</strong></div>
             <div><span>Email</span><strong>{pedido.cliente_email}</strong></div>
             <div><span>Ciudad</span><strong>{pedido.ciudad || '—'}</strong></div>
-            <div><span>Fecha</span><strong>{new Date(pedido.fecha_pedido).toLocaleDateString('es-CO')}</strong></div>
+            <div><span>Fecha</span><strong>{formatDate(pedido.fecha_pedido)}</strong></div>
+            <div><span>Recibe</span><strong>{pedido.nombre_recibe || 'No especificado'}</strong></div>
+            <div className={styles.addressInfo}>
+              <span>Dirección de entrega</span>
+              <strong>{pedido.direccion_completa || '—'}</strong>
+            </div>
           </div>
 
           {/* Cambio de estado */}
@@ -90,10 +112,10 @@ function ModalDetalle({ pedido, estados, onCerrar, onCambiarEstado }) {
                     </div>
                   </td>
                   <td>{d.ancho_cm}×{d.alto_cm} cm</td>
-                  <td>{parseFloat(d.area_m2).toFixed(2)} m²</td>
-                  <td>${parseFloat(d.precio_m2).toLocaleString('es-CO')}</td>
+                  <td>{formatNumber(d.area_m2, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m²</td>
+                  <td>{formatCurrency(d.precio_m2)}</td>
                   <td>{d.cantidad}</td>
-                  <td className={styles.tdTotal}>${parseFloat(d.precio_total).toLocaleString('es-CO')}</td>
+                  <td className={styles.tdTotal}>{formatCurrency(d.precio_total)}</td>
                 </tr>
               ))}
             </tbody>
@@ -101,7 +123,7 @@ function ModalDetalle({ pedido, estados, onCerrar, onCambiarEstado }) {
 
           <div className={styles.totalRow}>
             <span>Total</span>
-            <strong>${parseFloat(pedido.total).toLocaleString('es-CO')}</strong>
+            <strong>{formatCurrency(pedido.total)}</strong>
           </div>
         </div>
       </div>
@@ -110,7 +132,7 @@ function ModalDetalle({ pedido, estados, onCerrar, onCambiarEstado }) {
 }
 
 export default function AdminPedidos() {
-  const { token } = useAuth()
+  const { authenticatedFetch } = useAuth()
   const [pedidos,   setPedidos]   = useState([])
   const [estados,   setEstados]   = useState([])
   const [loading,   setLoading]   = useState(true)
@@ -125,14 +147,14 @@ export default function AdminPedidos() {
 
   const cargarEstados = useCallback(async () => {
     try {
-      const res  = await fetch(`${API}/admin/estados-pedido/`, { headers: { Authorization: `Bearer ${token}` } })
+      const res  = await authenticatedFetch(`${API}/admin/estados-pedido/`)
       if (!res.ok) throw new Error('Respuesta no OK')
       const data = await res.json()
       setEstados(data)
     } catch {
       setEstados([])
     }
-  }, [token])
+  }, [authenticatedFetch])
 
   const cargarPedidos = useCallback(async () => {
     setLoading(true)
@@ -141,7 +163,7 @@ export default function AdminPedidos() {
       const params = new URLSearchParams({ page })
       if (search)    params.set('search', search)
       if (filtroEst) params.set('estado', filtroEst)
-      const res  = await fetch(`${API}/admin/pedidos/?${params}`, { headers: { Authorization: `Bearer ${token}` } })
+      const res  = await authenticatedFetch(`${API}/admin/pedidos/?${params}`)
       if (!res.ok) throw new Error('Respuesta no OK')
       const data = await res.json()
       setPedidos(data.pedidos ?? [])
@@ -154,7 +176,7 @@ export default function AdminPedidos() {
       setTotal(0)
     }
     finally  { setLoading(false) }
-  }, [token, page, search, filtroEst])
+  }, [page, search, filtroEst, authenticatedFetch])
 
   useEffect(() => { cargarEstados() }, [cargarEstados])
   useEffect(() => { cargarPedidos() }, [cargarPedidos])
@@ -166,20 +188,23 @@ export default function AdminPedidos() {
       return
     }
     try {
-      const res  = await fetch(`${API}/pedidos/${pedido.pedido_id}/`, { headers: { Authorization: `Bearer ${token}` } })
+      const res  = await authenticatedFetch(`${API}/admin/pedidos/${pedido.pedido_id}/`)
       const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.detail || 'No fue posible cargar el detalle del pedido.')
+      }
       setDetalleCache(c => ({ ...c, [pedido.pedido_id]: data }))
       setSeleccionado(data)
-    } catch {
-      setSeleccionado(pedido)   // fallback: sin detalle de ítems
+    } catch (error) {
+      alert(error.message || 'No fue posible cargar el detalle del pedido.')
     }
   }
 
   const cambiarEstado = async (pedidoId, estadoId) => {
     try {
-      const res = await fetch(`${API}/admin/pedidos/${pedidoId}/estado/`, {
+      const res = await authenticatedFetch(`${API}/admin/pedidos/${pedidoId}/estado/`, {
         method:  'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ estado_id: estadoId }),
       })
       if (!res.ok) throw new Error()
@@ -257,8 +282,8 @@ export default function AdminPedidos() {
                     </td>
                     <td>{p.ciudad || '—'}</td>
                     <td className={styles.center}>{p.num_items}</td>
-                    <td className={styles.totalCell}>${parseFloat(p.total).toLocaleString('es-CO')}</td>
-                    <td>{new Date(p.fecha_pedido).toLocaleDateString('es-CO')}</td>
+                    <td className={styles.totalCell}>{formatCurrency(p.total)}</td>
+                    <td>{formatDate(p.fecha_pedido)}</td>
                     <td>
                       <select
                         className={styles.statusSelect}
@@ -304,4 +329,3 @@ export default function AdminPedidos() {
     </div>
   )
 }
-

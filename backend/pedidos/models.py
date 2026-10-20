@@ -25,6 +25,7 @@ class Direccion(models.Model):
     cliente      = models.ForeignKey(Cliente, on_delete=models.CASCADE,
                                      related_name='direcciones')
     ciudad       = models.ForeignKey(Ciudad, on_delete=models.PROTECT)
+    nombre_recibe = models.CharField(max_length=100, blank=True, default='')
     barrio       = models.CharField(max_length=100, null=True, blank=True)
     calle        = models.CharField(max_length=150)
     numero       = models.CharField(max_length=50)

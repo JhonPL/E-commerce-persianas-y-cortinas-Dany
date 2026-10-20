@@ -10,6 +10,10 @@ urlpatterns = [
     path("api/v1/pedidos/<int:pedido_id>/", views.detalle_pedido),
     path("api/v1/admin/pedidos/", views.admin_pedidos_list),
     path(
+        "api/v1/admin/pedidos/<int:pedido_id>/",
+        views.admin_detalle_pedido,
+    ),
+    path(
         "api/v1/admin/pedidos/<int:pedido_id>/estado/",
         views.admin_pedido_cambiar_estado,
     ),

@@ -47,10 +47,11 @@ export async function addProductToCart(page) {
 export async function rejectCheckout(page) {
   await page.getByRole('link', { name: 'Proceder al pago', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Entrega y pago de prueba' })).toBeVisible()
-  await page.locator('input[name="departamento"]').fill('Meta')
-  await page.locator('input[name="ciudad"]').fill('Granada')
-  await page.locator('input[name="calle"]').fill('Dirección automatizada')
-  await page.locator('input[name="numero"]').fill('100')
+  await page.locator('select[name="departamento"]').selectOption({ label: 'Meta' })
+  await page.locator('select[name="ciudad"]').selectOption({ label: 'Granada' })
+  await page.locator('input[name="nombre_recibe"]').fill('Persona receptora')
+  await page.locator('input[name="barrio"]').fill('Centro')
+  await page.locator('textarea[name="calle"]').fill('Carrera 10 # 20-52, apartamento 301')
   await page.getByRole('radio', { name: /Rechazar pago de prueba/ }).check()
   const paymentRequest = page.waitForResponse((response) => {
     const request = response.request()

@@ -6,19 +6,28 @@ test('el pago aprobado de prueba persiste el pedido y limpia el carrito', async 
   await addProductToCart(page)
   await page.getByRole('link', { name: 'Proceder al pago', exact: true }).click()
 
-  await page.locator('input[name="departamento"]').fill('Meta')
-  await page.locator('input[name="ciudad"]').fill('Granada')
-  await page.locator('input[name="calle"]').fill('Dirección automatizada')
-  await page.locator('input[name="numero"]').fill('100')
+  await page.locator('select[name="departamento"]').selectOption({ label: 'Meta' })
+  await page.locator('select[name="ciudad"]').selectOption({ label: 'Granada' })
+  await page.locator('input[name="nombre_recibe"]').fill('Persona receptora')
+  await page.locator('input[name="barrio"]').fill('Centro')
+  await page.locator('textarea[name="calle"]').fill('Carrera 10 # 20-52, apartamento 301')
   await page.getByRole('radio', { name: /Aprobar pago de prueba/ }).check()
 
+  const checkoutRequest = page.waitForResponse((response) => {
+    const request = response.request()
+    return new URL(response.url()).pathname.endsWith('/pedidos/checkout/')
+      && request.method() === 'POST'
+  })
   const paymentRequest = page.waitForResponse((response) => {
     const request = response.request()
     return new URL(response.url()).pathname.endsWith('/payments/simulate/')
       && request.method() === 'POST'
-  })
+  }).catch(() => null)
   await page.getByRole('button', { name: 'Crear pedido y simular pago' }).click()
+  const checkoutResponse = await checkoutRequest
+  expect(checkoutResponse.ok(), await checkoutResponse.text()).toBeTruthy()
   const paymentResponse = await paymentRequest
+  expect(paymentResponse).not.toBeNull()
   expect(paymentResponse.ok(), await paymentResponse.text()).toBeTruthy()
   const payment = await paymentResponse.json()
   expect(payment.outcome).toBe('approved')

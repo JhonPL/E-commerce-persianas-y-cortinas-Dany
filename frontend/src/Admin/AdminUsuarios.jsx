@@ -17,7 +17,7 @@ function Avatar({ nombre }) {
 }
 
 export default function AdminUsuarios() {
-  const { token, user: usuarioActual } = useAuth()
+  const { user: usuarioActual, authenticatedFetch } = useAuth()
   const [usuarios,  setUsuarios]  = useState([])
   const [stats,     setStats]     = useState({ total: 0, activos: 0, admins: 0, clientes: 0 })
   const [loading,   setLoading]   = useState(true)
@@ -37,7 +37,7 @@ export default function AdminUsuarios() {
       const params = new URLSearchParams({ page })
       if (search)    params.set('search', search)
       if (filtroRol) params.set('rol', filtroRol)
-      const res  = await fetch(`${API}/admin/usuarios/?${params}`, { headers: { Authorization: `Bearer ${token}` } })
+      const res  = await authenticatedFetch(`${API}/admin/usuarios/?${params}`)
       if (!res.ok) throw new Error('Respuesta no OK')
       const data = await res.json()
       setUsuarios(data.usuarios ?? [])
@@ -52,7 +52,7 @@ export default function AdminUsuarios() {
       setTotal(0)
     }
     finally  { setLoading(false) }
-  }, [token, page, search, filtroRol])
+  }, [page, search, filtroRol, authenticatedFetch])
 
   useEffect(() => { cargar() }, [cargar])
 
@@ -60,9 +60,9 @@ export default function AdminUsuarios() {
     if (usuario.rol === 'admin') return   // protección
     setToggling(usuario.usuario_id)
     try {
-      const res = await fetch(`${API}/admin/usuarios/${usuario.usuario_id}/activo/`, {
+      const res = await authenticatedFetch(`${API}/admin/usuarios/${usuario.usuario_id}/activo/`, {
         method:  'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ activo: !usuario.activo }),
       })
       if (!res.ok) throw new Error()
@@ -76,9 +76,9 @@ export default function AdminUsuarios() {
   const cambiarRol = async (usuario, rol) => {
     setRoleUpdating(usuario.usuario_id)
     try {
-      const res = await fetch(`${API}/admin/usuarios/${usuario.usuario_id}/rol/`, {
+      const res = await authenticatedFetch(`${API}/admin/usuarios/${usuario.usuario_id}/rol/`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rol }),
       })
       const data = await res.json()
@@ -214,7 +214,5 @@ export default function AdminUsuarios() {
     </div>
   )
 }
-
-
 
 

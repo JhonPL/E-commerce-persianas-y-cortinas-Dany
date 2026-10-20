@@ -4,7 +4,6 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from notificaciones.views import (
     ContactMessageNotificationView,
     PedidoApprovedNotificationView,
-    PedidoCreatedNotificationView,
     PedidoStatusChangedNotificationView,
 )
 
@@ -14,11 +13,6 @@ urlpatterns = [
         "api/internal/notificaciones/pedidos/",
         PedidoApprovedNotificationView.as_view(),
         name="notify-approved-order",
-    ),
-    path(
-        "api/internal/notificaciones/pedidos/nuevo/",
-        PedidoCreatedNotificationView.as_view(),
-        name="notify-created-order",
     ),
     path(
         "api/internal/notificaciones/pedidos/estado/",

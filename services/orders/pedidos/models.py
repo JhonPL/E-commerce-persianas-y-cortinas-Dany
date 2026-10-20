@@ -27,6 +27,7 @@ class Direccion(models.Model):
     direccion_id = models.AutoField(primary_key=True)
     usuario = models.PositiveIntegerField(db_column="usuario_id")
     ciudad = models.ForeignKey(Ciudad, on_delete=models.PROTECT)
+    nombre_recibe = models.CharField(max_length=100, blank=True, default="")
     barrio = models.CharField(max_length=100, null=True, blank=True)
     calle = models.CharField(max_length=150)
     numero = models.CharField(max_length=50)

@@ -143,7 +143,7 @@ function TarjetaPedido({ pedido }) {
 
 /* ── Página principal ─────────────────────────────────────── */
 export default function MisPedidos() {
-  const { token } = useAuth()
+  const { token, authenticatedFetch } = useAuth()
   const [pedidos, setPedidos] = useState([])
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(null)
@@ -154,9 +154,7 @@ export default function MisPedidos() {
         setLoading(true)
         setError(null)
 
-        const res = await fetch(`${API_URL}/pedidos/`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
+        const res = await authenticatedFetch(`${API_URL}/pedidos/`)
 
         if (!res.ok) {
           throw new Error(`Error ${res.status}: no se pudieron cargar los pedidos.`)
@@ -175,7 +173,7 @@ export default function MisPedidos() {
     if (token) {
       cargar()
     }
-  }, [token])
+  }, [token, authenticatedFetch])
 
   /* ── Estados de la UI ── */
   if (loading) {

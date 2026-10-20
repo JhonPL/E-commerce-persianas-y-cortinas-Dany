@@ -4,7 +4,24 @@ import { AlertCircle, CheckCircle2, CreditCard, ShieldCheck } from 'lucide-react
 import { useAuth } from '../../context/AuthContext'
 import { useCart } from '../../context/CartContext'
 import { API_URL } from '../../config/api'
+import colombiaLocations from '../../data/colombiaLocations.json'
 import styles from './Checkout.module.css'
+
+const departments = colombiaLocations
+  .map((department) => ({
+    ...department,
+    ciudades: [...department.ciudades].sort((a, b) => a.localeCompare(b, 'es')),
+  }))
+  .sort((a, b) => a.departamento.localeCompare(b.departamento, 'es'))
+
+const addressFieldLabels = {
+  departamento: 'Departamento',
+  ciudad: 'Ciudad o municipio',
+  nombre_recibe: 'Nombre de quien recibe',
+  barrio: 'Barrio',
+  calle: 'Dirección completa',
+  numero: 'Número',
+}
 
 const formatCOP = (value) =>
   new Intl.NumberFormat('es-CO', {
@@ -16,33 +33,40 @@ const formatCOP = (value) =>
 async function readResponse(response) {
   const data = await response.json().catch(() => ({}))
   if (!response.ok) {
-    const detail = data.detail || Object.values(data).flat()[0]
+    const fieldError = Object.entries(data).find(([field, messages]) =>
+      field !== 'detail' && Array.isArray(messages) && messages.length > 0,
+    )
+    const detail = data.detail || (fieldError
+      ? `${addressFieldLabels[fieldError[0]] || fieldError[0]}: ${fieldError[1][0]}`
+      : Object.values(data).flat()[0])
     throw new Error(detail || 'No fue posible completar la operación.')
   }
   return data
 }
 
 export default function Checkout() {
-  const { user, token } = useAuth()
+  const { user, authenticatedFetch } = useAuth()
   const { items, total, clearCart } = useCart()
   const [address, setAddress] = useState({
     departamento: '',
     ciudad: '',
+    nombre_recibe: '',
     barrio: '',
     calle: '',
-    numero: '',
-    complemento: '',
   })
   const [outcome, setOutcome] = useState('approved')
   const [order, setOrder] = useState(null)
   const [payment, setPayment] = useState(null)
   const [error, setError] = useState('')
-  const [notificationWarning, setNotificationWarning] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   const updateAddress = (event) => {
     const { name, value } = event.target
-    setAddress((current) => ({ ...current, [name]: value }))
+    setAddress((current) => ({
+      ...current,
+      [name]: value,
+      ...(name === 'departamento' ? { ciudad: '' } : {}),
+    }))
   }
 
   const handleSubmit = async (event) => {
@@ -53,29 +77,18 @@ export default function Checkout() {
     try {
       let currentOrder = order
       if (!currentOrder) {
-        const response = await fetch(`${API_URL}/pedidos/checkout/`, {
+        const response = await authenticatedFetch(`${API_URL}/pedidos/checkout/`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ direccion: address }),
         })
         currentOrder = await readResponse(response)
         setOrder(currentOrder)
-        setNotificationWarning(
-          currentOrder.notificacion === 'enviado'
-            ? ''
-            : 'El pedido se registró, pero no fue posible confirmar el envío de todos los correos.',
-        )
       }
 
-      const response = await fetch(`${API_URL}/payments/simulate/`, {
+      const response = await authenticatedFetch(`${API_URL}/payments/simulate/`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           pedido_id: currentOrder.pedido_id,
           outcome,
@@ -108,7 +121,6 @@ export default function Checkout() {
           <p className={styles.notice}>
             No se realizó ningún cobro ni se procesaron datos de tarjeta.
           </p>
-          {notificationWarning && <p className={styles.notice} role="alert">{notificationWarning}</p>}
           <Link className={styles.primaryButton} to="/mis-pedidos">
             Ver mis pedidos
           </Link>
@@ -138,7 +150,6 @@ export default function Checkout() {
           <p className={styles.eyebrow}>Pedido #{payment.pedido_id}</p>
           <h2>Pago rechazado (simulado)</h2>
           <p>No se hizo ningún cobro. Puedes probar nuevamente con otro resultado.</p>
-          {notificationWarning && <p className={styles.notice} role="alert">{notificationWarning}</p>}
           <button
             className={styles.secondaryButton}
             type="button"
@@ -154,26 +165,79 @@ export default function Checkout() {
               <h2>Dirección de entrega</h2>
               <p className={styles.customer}>Pedido para {user?.nombre || user?.email}</p>
               <div className={styles.fields}>
-                {[
-                  ['departamento', 'Departamento'],
-                  ['ciudad', 'Ciudad o municipio'],
-                  ['barrio', 'Barrio (opcional)'],
-                  ['calle', 'Dirección / calle'],
-                  ['numero', 'Número'],
-                  ['complemento', 'Complemento (opcional)'],
-                ].map(([name, label]) => (
-                  <label className={styles.field} key={name}>
-                    <span>{label}</span>
-                    <input
-                      name={name}
-                      value={address[name]}
-                      onChange={updateAddress}
-                      required={!['barrio', 'complemento'].includes(name)}
-                      disabled={Boolean(order)}
-                      maxLength={150}
-                    />
-                  </label>
-                ))}
+                <label className={styles.field}>
+                  <span>Departamento</span>
+                  <select
+                    name="departamento"
+                    value={address.departamento}
+                    onChange={updateAddress}
+                    required
+                    disabled={Boolean(order)}
+                  >
+                    <option value="">Selecciona un departamento</option>
+                    {departments.map((department) => (
+                      <option key={department.departamento} value={department.departamento}>
+                        {department.departamento}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className={styles.field}>
+                  <span>Ciudad o municipio</span>
+                  <select
+                    name="ciudad"
+                    value={address.ciudad}
+                    onChange={updateAddress}
+                    required
+                    disabled={Boolean(order) || !address.departamento}
+                  >
+                    <option value="">
+                      {address.departamento ? 'Selecciona una ciudad o municipio' : 'Primero selecciona un departamento'}
+                    </option>
+                    {departments
+                      .find((department) => department.departamento === address.departamento)
+                      ?.ciudades.map((city) => (
+                        <option key={city} value={city}>{city}</option>
+                      ))}
+                  </select>
+                </label>
+                <label className={styles.field}>
+                  <span>Nombre de quien recibe</span>
+                  <input
+                    name="nombre_recibe"
+                    value={address.nombre_recibe}
+                    onChange={updateAddress}
+                    required
+                    disabled={Boolean(order)}
+                    maxLength={100}
+                  />
+                </label>
+                <label className={styles.field}>
+                  <span>Barrio</span>
+                  <input
+                    name="barrio"
+                    value={address.barrio}
+                    onChange={updateAddress}
+                    required
+                    disabled={Boolean(order)}
+                    maxLength={100}
+                  />
+                </label>
+                <label className={`${styles.field} ${styles.fullWidth}`}>
+                  <span>Dirección completa</span>
+                  <small>Incluye tipo de vía, número, apartamento, interior u otras indicaciones.</small>
+                  <textarea
+                    name="calle"
+                    value={address.calle}
+                    onChange={updateAddress}
+                    required
+                    disabled={Boolean(order)}
+                    maxLength={150}
+                    minLength={5}
+                    rows={3}
+                    autoComplete="street-address"
+                  />
+                </label>
               </div>
             </section>
 

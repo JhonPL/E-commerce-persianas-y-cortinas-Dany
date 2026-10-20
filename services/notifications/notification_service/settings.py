@@ -72,6 +72,7 @@ SPECTACULAR_SETTINGS = {
 
 INTERNAL_SERVICE_TOKEN = env("INTERNAL_SERVICE_TOKEN", default="")
 ADMIN_EMAIL = env("ADMIN_EMAIL", default="jhonpaternina2002@gmail.com")
+CONTACT_EMAIL = env("CONTACT_EMAIL", default=ADMIN_EMAIL)
 DEFAULT_FROM_EMAIL = env(
     "DEFAULT_FROM_EMAIL",
     default="jhon.paternina302@gmail.com",
@@ -89,3 +90,7 @@ EMAIL_HOST_USER = env(
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
 EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
 EMAIL_USE_SSL = env.bool("EMAIL_USE_SSL", default=False)
+FRONTEND_URL = env(
+    "FRONTEND_URL",
+    default="http://127.0.0.1:5173",
+).rstrip("/")

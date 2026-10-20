@@ -27,6 +27,8 @@ class NotificationApiTests(APITestCase):
             "pedido_id": 41,
             "cliente_nombre": "Cliente de prueba",
             "cliente_email": "customer@example.com",
+            "nombre_recibe": "Persona receptora",
+            "direccion": "Calle 10, Granada, Meta",
             "total": "125000.00",
             "detalles": [
                 {
@@ -73,42 +75,41 @@ class NotificationApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["estado"], NotificacionAdmin.ENVIADO)
         self.assertEqual(response.data["admin_estado"], NotificacionAdmin.ENVIADO)
-        self.assertEqual(response.data["cliente_estado"], NotificacionAdmin.ENVIADO)
-        self.assertEqual(NotificacionAdmin.objects.count(), 2)
+        self.assertNotIn("cliente_estado", response.data)
+        self.assertEqual(NotificacionAdmin.objects.count(), 1)
         admin_notification = NotificacionAdmin.objects.get(
             evento_id="pedido:41:payment-approved",
-        )
-        customer_notification = NotificacionAdmin.objects.get(
-            evento_id="pedido:41:payment-approved:customer",
         )
         self.assertEqual(admin_notification.pedido_id, 41)
         self.assertEqual(
             admin_notification.destinatario,
             "jhonpaternina2002@gmail.com",
         )
-        self.assertEqual(
-            customer_notification.destinatario,
-            "customer@example.com",
-        )
         self.assertEqual(admin_notification.intentos, 1)
-        self.assertEqual(len(mail.outbox), 2)
-        admin_message = next(
-            message
-            for message in mail.outbox
-            if message.to == ["jhonpaternina2002@gmail.com"]
-        )
-        customer_message = next(
-            message
-            for message in mail.outbox
-            if message.to == ["customer@example.com"]
-        )
+        self.assertEqual(len(mail.outbox), 1)
+        admin_message = mail.outbox[0]
+        self.assertEqual(admin_message.to, ["jhonpaternina2002@gmail.com"])
         self.assertEqual(admin_message.from_email, "jhon.paternina302@gmail.com")
-        self.assertEqual(customer_message.from_email, "jhon.paternina302@gmail.com")
         self.assertIn("Pedido ID: 41", admin_message.body)
         self.assertIn("customer@example.com", admin_message.body)
         self.assertIn("Cortina Blackout", admin_message.body)
-        self.assertIn("Cortina Blackout", customer_message.body)
-        self.assertIn("no se realizó un cobro real", customer_message.body)
+        self.assertIn("Productos:", admin_message.body)
+        self.assertIn("Nuevo pedido recibido", admin_message.subject)
+        self.assertIn("Pago confirmado", admin_message.alternatives[0][0])
+        self.assertIn("Cliente de prueba", admin_message.alternatives[0][0])
+        self.assertIn("customer@example.com", admin_message.alternatives[0][0])
+        self.assertIn("Persona receptora", admin_message.alternatives[0][0])
+        self.assertIn("Calle 10", admin_message.alternatives[0][0])
+        self.assertIn("Abrir gestión de pedidos", admin_message.alternatives[0][0])
+        self.assertIn("cid:brand-logo", admin_message.alternatives[0][0])
+        self.assertIn(
+            b"Content-ID: <brand-logo>",
+            admin_message.message().as_bytes(),
+        )
+        self.assertIn(
+            b"Content-Type: image/png",
+            admin_message.message().as_bytes(),
+        )
 
     def test_retry_after_success_is_idempotent(self):
         first = self._post()
@@ -116,8 +117,8 @@ class NotificationApiTests(APITestCase):
 
         self.assertEqual(first.data["estado"], NotificacionAdmin.ENVIADO)
         self.assertTrue(second.data["duplicate"])
-        self.assertEqual(NotificacionAdmin.objects.count(), 2)
-        self.assertEqual(len(mail.outbox), 2)
+        self.assertEqual(NotificacionAdmin.objects.count(), 1)
+        self.assertEqual(len(mail.outbox), 1)
 
     def test_concurrent_retry_does_not_start_a_second_email(self):
         NotificacionAdmin.objects.create(
@@ -130,14 +131,9 @@ class NotificationApiTests(APITestCase):
 
         response = self._post()
 
-        self.assertFalse(response.data["duplicate"])
+        self.assertTrue(response.data["duplicate"])
         self.assertEqual(response.data["admin_estado"], NotificacionAdmin.REINTENTANDO)
-        self.assertEqual(response.data["cliente_estado"], NotificacionAdmin.ENVIADO)
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual(
-            mail.outbox[0].to,
-            ["customer@example.com"],
-        )
+        self.assertEqual(len(mail.outbox), 0)
 
     def test_stale_retry_can_be_reclaimed_after_worker_failure(self):
         notification = NotificacionAdmin.objects.create(
@@ -155,9 +151,8 @@ class NotificationApiTests(APITestCase):
         notification.refresh_from_db()
 
         self.assertEqual(response.data["estado"], NotificacionAdmin.ENVIADO)
-        self.assertEqual(response.data["cliente_estado"], NotificacionAdmin.ENVIADO)
         self.assertEqual(notification.intentos, 2)
-        self.assertEqual(len(mail.outbox), 2)
+        self.assertEqual(len(mail.outbox), 1)
 
     @patch(
         "notificaciones.views.EmailMessage.send",
@@ -168,8 +163,7 @@ class NotificationApiTests(APITestCase):
         notifications = NotificacionAdmin.objects.order_by("evento_id")
         self.assertEqual(failed.status_code, status.HTTP_200_OK)
         self.assertEqual(failed.data["estado"], NotificacionAdmin.FALLIDO)
-        self.assertEqual(failed.data["cliente_estado"], NotificacionAdmin.FALLIDO)
-        self.assertEqual(notifications.count(), 2)
+        self.assertEqual(notifications.count(), 1)
         self.assertTrue(
             all(
                 notification.error_detalle == "SMTP unavailable"
@@ -182,10 +176,9 @@ class NotificationApiTests(APITestCase):
         retried = self._post()
         notifications = list(NotificacionAdmin.objects.order_by("evento_id"))
         self.assertEqual(retried.data["estado"], NotificacionAdmin.ENVIADO)
-        self.assertEqual(retried.data["cliente_estado"], NotificacionAdmin.ENVIADO)
         self.assertEqual(
             [notification.intentos for notification in notifications],
-            [2, 2],
+            [2],
         )
         self.assertTrue(
             all(notification.error_detalle is None for notification in notifications)
@@ -266,71 +259,6 @@ class ContactMessageNotificationTests(APITestCase):
         self.assertEqual(len(mail.outbox), 0)
 
 
-@override_settings(
-    INTERNAL_SERVICE_TOKEN="test-internal-token",
-    ADMIN_EMAIL="admin@example.com",
-)
-class OrderCreatedNotificationTests(APITestCase):
-    payload = {
-        "pedido_id": 83,
-        "cliente_nombre": "Cliente de prueba",
-        "cliente_email": "customer@example.com",
-        "total": "125000.00",
-        "direccion": "Calle 10 20, Granada, Meta",
-        "detalles": [
-            {
-                "producto_id": 12,
-                "producto_nombre": "Cortina Blackout",
-                "cantidad": 1,
-                "ancho_cm": "100.00",
-                "alto_cm": "200.00",
-                "precio_total": "125000.00",
-            }
-        ],
-    }
-
-    def _post(self):
-        return self.client.post(
-            "/api/internal/notificaciones/pedidos/nuevo/",
-            self.payload,
-            format="json",
-            HTTP_X_INTERNAL_SERVICE_TOKEN="test-internal-token",
-        )
-
-    def test_new_order_notifies_only_customer_idempotently(self):
-        response = self._post()
-        retry = self._post()
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["admin_estado"], "omitido")
-        self.assertEqual(response.data["cliente_estado"], NotificacionAdmin.ENVIADO)
-        self.assertTrue(retry.data["duplicate"])
-        self.assertEqual(NotificacionAdmin.objects.count(), 1)
-        self.assertEqual(len(mail.outbox), 1)
-        customer_message = mail.outbox[0]
-        self.assertEqual(customer_message.to, ["customer@example.com"])
-        self.assertEqual(customer_message.from_email, "jhon.paternina302@gmail.com")
-        self.assertNotIn("jhon.paternina302@gmail.com", customer_message.to)
-        self.assertIn("pedido #83", customer_message.body)
-        self.assertIn("Calle 10 20", customer_message.body)
-        self.assertIn("Cortina Blackout", customer_message.body)
-        self.assertIn("producto #12", customer_message.body)
-        self.assertIn("No se realizó ningún cobro real", customer_message.body)
-
-    @patch(
-        "notificaciones.views.EmailMessage.send",
-        side_effect=OSError("SMTP unavailable"),
-    )
-    def test_new_order_records_customer_delivery_failure(self, email_send):
-        response = self._post()
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["admin_estado"], "omitido")
-        self.assertEqual(response.data["cliente_estado"], NotificacionAdmin.FALLIDO)
-        self.assertEqual(NotificacionAdmin.objects.count(), 1)
-        self.assertEqual(email_send.call_count, 1)
-
-
 @override_settings(INTERNAL_SERVICE_TOKEN="test-internal-token")
 class OrderStatusChangedNotificationTests(APITestCase):
     payload = {
@@ -342,10 +270,10 @@ class OrderStatusChangedNotificationTests(APITestCase):
         "estado_nuevo": "Preparado",
     }
 
-    def _post(self, **headers):
+    def _post(self, payload=None, **headers):
         return self.client.post(
             "/api/internal/notificaciones/pedidos/estado/",
-            self.payload,
+            payload or self.payload,
             format="json",
             **headers,
         )
@@ -369,6 +297,23 @@ class OrderStatusChangedNotificationTests(APITestCase):
         self.assertEqual(mail.outbox[0].to, ["customer@example.com"])
         self.assertIn("Estado anterior: Pendiente de preparación", mail.outbox[0].body)
         self.assertIn("Estado nuevo: Preparado", mail.outbox[0].body)
+        status_html = mail.outbox[0].alternatives[0][0]
+        self.assertIn("Tu pedido está en preparación", status_html)
+        self.assertIn("En preparación", status_html)
+        self.assertIn("cid:brand-logo", status_html)
+
+    def test_sent_order_uses_on_the_way_email_case(self):
+        payload = {**self.payload, "estado_nuevo": "Enviado"}
+        response = self._post(
+            payload,
+            HTTP_X_INTERNAL_SERVICE_TOKEN="test-internal-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        html = mail.outbox[0].alternatives[0][0]
+        self.assertIn("Tu pedido está en camino", html)
+        self.assertIn("En camino", html)
+        self.assertIn("transportadora o número de guía", html)
 
     def test_status_change_notification_requires_internal_token(self):
         response = self._post()

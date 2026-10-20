@@ -144,7 +144,7 @@ const CartContext = createContext(null)
 
 export function CartProvider({ children }) {
   const [state, dispatch] = useReducer(cartReducer, initialState)
-  const { user, token }   = useAuth()
+  const { user, token, authenticatedFetch } = useAuth()
 
   // ── Al hacer login: sincronizar carrito local → backend y cargar el resultado
   useEffect(() => {
@@ -160,9 +160,9 @@ export function CartProvider({ children }) {
           cantidad:  i.cantidad,
         }))
 
-        const res = await fetch(`${API_URL}/carrito/sincronizar/`, {
+        const res = await authenticatedFetch(`${API_URL}/carrito/sincronizar/`, {
           method:  'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          headers: { 'Content-Type': 'application/json' },
           body:    JSON.stringify({ items: itemsLocales }),
         })
         if (!res.ok) throw new Error('Sync failed')
@@ -173,9 +173,7 @@ export function CartProvider({ children }) {
       } catch {
         // Si falla la sync, cargar igualmente el carrito guardado en BD
         try {
-          const res  = await fetch(`${API_URL}/carrito/`, {
-            headers: { Authorization: `Bearer ${token}` },
-          })
+          const res  = await authenticatedFetch(`${API_URL}/carrito/`)
           if (res.ok) {
             const data = await res.json()
             if (Array.isArray(data?.items)) {
@@ -186,7 +184,7 @@ export function CartProvider({ children }) {
       }
     }
     sincronizar()
-  }, [user, token]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user, token, authenticatedFetch]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Al hacer logout: limpiar carrito
   useEffect(() => {
@@ -203,9 +201,9 @@ export function CartProvider({ children }) {
 
     // 2. Persistir en backend
     try {
-      const res = await fetch(`${API_URL}/carrito/`, {
+      const res = await authenticatedFetch(`${API_URL}/carrito/`, {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
           producto: product.producto_id,
           ancho_cm: ancho,
@@ -220,7 +218,7 @@ export function CartProvider({ children }) {
         dispatch({ type: 'LOAD_FROM_BACKEND', payload: data.items })
       }
     } catch { /* fallo silencioso */ }
-  }, [token])
+  }, [token, authenticatedFetch])
 
   const removeItem = useCallback(async (key) => {
     const item = state.items.find(i => i.key === key)
@@ -228,12 +226,11 @@ export function CartProvider({ children }) {
 
     if (!token || !item?.item_id) return
     try {
-      await fetch(`${API_URL}/carrito/${item.item_id}/`, {
+      await authenticatedFetch(`${API_URL}/carrito/${item.item_id}/`, {
         method:  'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
       })
     } catch { /* fallo silencioso */ }
-  }, [token, state.items])
+  }, [token, state.items, authenticatedFetch])
 
   const updateCantidad = useCallback(async (key, cantidad) => {
     const item = state.items.find(i => i.key === key)
@@ -241,13 +238,13 @@ export function CartProvider({ children }) {
 
     if (!token || !item?.item_id) return
     try {
-      await fetch(`${API_URL}/carrito/${item.item_id}/`, {
+      await authenticatedFetch(`${API_URL}/carrito/${item.item_id}/`, {
         method:  'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ cantidad }),
       })
     } catch { /* fallo silencioso */ }
-  }, [token, state.items])
+  }, [token, state.items, authenticatedFetch])
 
   // Compatibilidad con Detalle.jsx
   const updateMedidas = useCallback((key, ancho, alto, product) => {
@@ -258,12 +255,11 @@ export function CartProvider({ children }) {
     dispatch({ type: 'CLEAR_CART' })
     if (!token) return
     try {
-      await fetch(`${API_URL}/carrito/limpiar/`, {
+      await authenticatedFetch(`${API_URL}/carrito/limpiar/`, {
         method:  'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
       })
     } catch { /* fallo silencioso */ }
-  }, [token])
+  }, [token, authenticatedFetch])
 
   const toggleCart = useCallback(() => dispatch({ type: 'TOGGLE_CART' }), [])
   const closeCart  = useCallback(() => dispatch({ type: 'CLOSE_CART' }), [])

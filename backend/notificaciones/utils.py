@@ -3,6 +3,7 @@ import logging
 import requests
 from django.conf import settings
 
+from catalogo.models import Producto
 from .models import NotificacionAdmin
 
 
@@ -14,10 +15,44 @@ def notificar_admin(pedido):
         settings.NOTIFICATION_SERVICE_URL.rstrip("/")
         + "/api/internal/notificaciones/pedidos/"
     )
+    address = pedido.direccion
+    details = list(pedido.detalles.all())
+    products = Producto.objects.in_bulk(
+        {detail.producto for detail in details},
+        field_name="producto_id",
+    )
     payload = {
         "pedido_id": pedido.pedido_id,
+        "cliente_nombre": pedido.cliente.usuario.nombre,
         "cliente_email": pedido.cliente.usuario.email,
+        "nombre_recibe": address.nombre_recibe,
+        "direccion": ", ".join(
+            part
+            for part in (
+                " ".join(part for part in (address.calle, address.numero) if part),
+                address.barrio,
+                address.ciudad.nombre,
+                address.ciudad.departamento.nombre,
+                address.complemento,
+            )
+            if part
+        ),
         "total": str(pedido.total),
+        "detalles": [
+            {
+                "producto_id": detail.producto,
+                "producto_nombre": (
+                    products[detail.producto].nombre
+                    if detail.producto in products
+                    else f"Producto #{detail.producto}"
+                ),
+                "cantidad": detail.cantidad,
+                "ancho_cm": str(detail.ancho_cm),
+                "alto_cm": str(detail.alto_cm),
+                "precio_total": str(detail.precio_total),
+            }
+            for detail in details
+        ],
     }
     try:
         response = requests.post(
