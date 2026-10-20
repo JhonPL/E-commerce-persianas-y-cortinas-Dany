@@ -1,3 +1,7 @@
+param(
+    [string[]]$TestFiles = @()
+)
+
 $ErrorActionPreference = "Stop"
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $pythonPath = Join-Path $repositoryRoot "backend\venv\Scripts\python.exe"
@@ -90,7 +94,8 @@ print("Temporary administrator ready.")
     $adminCreated = $true
 
     Set-Location -LiteralPath $PSScriptRoot
-    & node $playwrightCli test
+    $playwrightArguments = @("test") + $TestFiles
+    & node $playwrightCli @playwrightArguments
     $testExitCode = $LASTEXITCODE
 }
 catch {
@@ -99,6 +104,7 @@ catch {
 }
 finally {
     $env:E2E_USER_IDS = ""
+    $env:E2E_ORDER_IDS = ""
     try {
         $userIdsCode = @'
 import os
@@ -124,6 +130,28 @@ CarritoItem.objects.filter(usuario__in=ids).delete()
             Invoke-ServiceShell "cart" "cart" "cart_service.settings" $cleanupCart | Out-Null
         }
 
+        $listOrders = @'
+import os
+from pedidos.models import Pedido
+prefix = os.environ["E2E_EMAIL_PREFIX"]
+orders = Pedido.objects.filter(cliente_email__startswith=prefix)
+print(",".join(str(value) for value in orders.values_list("pedido_id", flat=True)))
+'@
+        Invoke-CleanupStep "Buscando pedidos temporales" {
+            $orderIds = @(Invoke-ServiceShell "orders" "orders" "orders_service.settings" $listOrders | Where-Object { $_ -match '^\d+(,\d+)*$' } | Select-Object -Last 1)
+            $env:E2E_ORDER_IDS = if ($orderIds.Count) { $orderIds[0] } else { "" }
+        }
+        if ($env:E2E_ORDER_IDS) {
+            $cleanupNotifications = @'
+import os
+from notificaciones.models import NotificacionAdmin
+ids = [int(value) for value in os.environ["E2E_ORDER_IDS"].split(",") if value]
+NotificacionAdmin.objects.filter(pedido_id__in=ids, evento_id__startswith="pedido:").delete()
+'@
+            Invoke-CleanupStep "Limpiando notificaciones" {
+                Invoke-ServiceShell "notifications" "notifications" "notification_service.settings" $cleanupNotifications | Out-Null
+            }
+        }
         $cleanupOrders = @'
 import os
 from pedidos.models import Direccion, Pedido

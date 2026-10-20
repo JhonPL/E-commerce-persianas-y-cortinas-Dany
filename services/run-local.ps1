@@ -10,7 +10,9 @@ param(
         "payments-simulator"
     )]
     [string]$Service,
-    [int]$Port = 0
+    [int]$Port = 0,
+    [switch]$MigrateOnly,
+    [switch]$ExpireUnpaidOrders
 )
 
 $ErrorActionPreference = "Stop"
@@ -37,6 +39,9 @@ if (-not (Test-Path -LiteralPath $configPath -PathType Leaf)) {
 }
 if (-not (Test-Path -LiteralPath $pythonPath -PathType Leaf)) {
     throw "No se encontró el entorno Python del proyecto."
+}
+if ($MigrateOnly -and $ExpireUnpaidOrders) {
+    throw "MigrateOnly y ExpireUnpaidOrders no se pueden usar a la vez."
 }
 
 $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
@@ -72,5 +77,13 @@ if ($Port -le 0) {
 }
 
 Set-Location -LiteralPath $serviceDirectory
+if ($MigrateOnly) {
+    & $pythonPath manage.py migrate --noinput
+    exit $LASTEXITCODE
+}
+if ($ExpireUnpaidOrders) {
+    & $pythonPath manage.py expire_unpaid_orders --loop --interval 10
+    exit $LASTEXITCODE
+}
 & $pythonPath manage.py runserver "127.0.0.1:$Port" --noreload
 exit $LASTEXITCODE

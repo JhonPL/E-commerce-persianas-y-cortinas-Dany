@@ -71,14 +71,21 @@ SPECTACULAR_SETTINGS = {
 }
 
 INTERNAL_SERVICE_TOKEN = env("INTERNAL_SERVICE_TOKEN", default="")
-ADMIN_EMAIL = env("ADMIN_EMAIL", default="admin@tutienda.com")
-DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="webmaster@localhost")
+ADMIN_EMAIL = env("ADMIN_EMAIL", default="jhonpaternina2002@gmail.com")
+DEFAULT_FROM_EMAIL = env(
+    "DEFAULT_FROM_EMAIL",
+    default="jhon.paternina302@gmail.com",
+)
 EMAIL_BACKEND = env(
     "EMAIL_BACKEND",
-    default="django.core.mail.backends.console.EmailBackend",
+    default="django.core.mail.backends.smtp.EmailBackend",
 )
-EMAIL_HOST = env("EMAIL_HOST", default="")
-EMAIL_PORT = env("EMAIL_PORT")
-EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
+EMAIL_HOST = env("EMAIL_HOST", default="smtp.gmail.com")
+EMAIL_PORT = env.int("EMAIL_PORT", default=587)
+EMAIL_HOST_USER = env(
+    "EMAIL_HOST_USER",
+    default="jhon.paternina302@gmail.com",
+)
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
-EMAIL_USE_TLS = env("EMAIL_USE_TLS")
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
+EMAIL_USE_SSL = env.bool("EMAIL_USE_SSL", default=False)

@@ -241,10 +241,16 @@ Vista completa del producto con galería de imágenes, descripción y calculador
 
 ### Contacto (`/contacto`)
 - Tarjetas con dirección, teléfono, correo y horario de atención
+- Formulario enviado a `POST /api/v1/contacto/`; el gateway lo reenvía al
+  servicio de notificaciones y el administrador lo recibe por SMTP
 - Botón de WhatsApp directo
 - Mapa embed de Google Maps (Villavicencio)
-- Formulario con validación y estado de éxito
-- **TODO:** conectar a `POST /api/contacto`
+- Formulario con validación, estado de éxito y errores de envío visibles
+
+En producción, `jhon.paternina302@gmail.com` será la cuenta SMTP del sistema
+y el destinatario administrativo de los mensajes de contacto y pedidos. Esa
+cuenta también enviará las notificaciones de cambio de estado a los clientes;
+su configuración y credenciales SMTP se realizarán más adelante.
 
 ### MisPedidos (`/mis-pedidos`) — RequireAuth
 Historial de pedidos del cliente autenticado:
@@ -386,9 +392,14 @@ yarn add react-is
 Con el frontend, el gateway y los siete servicios iniciados localmente, ejecuta
 `.\run-e2e-local.ps1`. El script crea un administrador temporal, corre las
 pruebas Playwright de persistencia del carrito, checkout aprobado/rechazado y
-exclusión de pedidos rechazados en administración, y elimina los datos
+exclusión de pedidos rechazados en administración, envío del formulario y
+cierre del carrito, y elimina los datos
 asociados a esa ejecución. No inicia ni necesita el backend legacy.
+Para ejecutar solo algunos recorridos, pasa sus archivos con
+`.\run-e2e-local.ps1 -TestFiles @("e2e\contact-form.spec.js","e2e\customer-cart-persistence.spec.js")`.
+Las pruebas de checkout crean pedidos y, con SMTP real activado, generan correos
+reales; usa un backend de consola para esas pruebas automatizadas.
 
 `npm run lint` y `npm run build` validan el frontend de forma independiente.
-El formulario de contacto todavía muestra una confirmación simulada y no envía
-mensajes a un servicio; su integración no forma parte del flujo de compra.
+El servicio de notificaciones requiere SMTP configurado para entregar los
+mensajes de contacto y los avisos de pedidos al administrador y al cliente.

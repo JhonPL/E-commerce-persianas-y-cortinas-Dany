@@ -17,7 +17,7 @@ function Avatar({ nombre }) {
 }
 
 export default function AdminUsuarios() {
-  const { token } = useAuth()
+  const { token, user: usuarioActual } = useAuth()
   const [usuarios,  setUsuarios]  = useState([])
   const [stats,     setStats]     = useState({ total: 0, activos: 0, admins: 0, clientes: 0 })
   const [loading,   setLoading]   = useState(true)
@@ -27,6 +27,7 @@ export default function AdminUsuarios() {
   const [pages,     setPages]     = useState(1)
   const [total,     setTotal]     = useState(0)
   const [toggling,  setToggling]  = useState(null)  // usuario_id en proceso
+  const [roleUpdating, setRoleUpdating] = useState(null)
   const [sinConexion, setSinConexion] = useState(false)
 
   const cargar = useCallback(async () => {
@@ -70,6 +71,24 @@ export default function AdminUsuarios() {
       ))
     } catch { alert('Error al actualizar el usuario') }
     finally { setToggling(null) }
+  }
+
+  const cambiarRol = async (usuario, rol) => {
+    setRoleUpdating(usuario.usuario_id)
+    try {
+      const res = await fetch(`${API}/admin/usuarios/${usuario.usuario_id}/rol/`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ rol }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail ?? 'Error al actualizar el rol')
+      await cargar()
+    } catch (error) {
+      alert(error.message || 'Error al actualizar el rol')
+    } finally {
+      setRoleUpdating(null)
+    }
   }
 
   return (
@@ -144,10 +163,17 @@ export default function AdminUsuarios() {
                       </div>
                     </td>
                     <td>
-                      <span className={`${styles.rolBadge} ${u.rol === 'admin' ? styles.rolAdmin : styles.rolCliente}`}>
-                        {u.rol === 'admin' ? <ShieldCheck size={12} /> : <Users size={12} />}
-                        {u.rol}
-                      </span>
+                      <select
+                        className={styles.roleSelect}
+                        value={u.rol}
+                        disabled={roleUpdating === u.usuario_id || u.usuario_id === usuarioActual?.usuario_id}
+                        onChange={e => cambiarRol(u, e.target.value)}
+                        aria-label={`Rol de ${u.nombre}`}
+                        title={u.usuario_id === usuarioActual?.usuario_id ? 'No puedes cambiar tu propio rol' : 'Cambiar rol'}
+                      >
+                        <option value="admin">Administrador</option>
+                        <option value="cliente">Cliente</option>
+                      </select>
                     </td>
                     <td>
                       <span
@@ -188,7 +214,6 @@ export default function AdminUsuarios() {
     </div>
   )
 }
-
 
 
 

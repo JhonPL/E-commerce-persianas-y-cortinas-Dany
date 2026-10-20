@@ -3,6 +3,7 @@ from django.urls import path
 
 from gateway.views import (
     admin_dashboard,
+    contact_notification,
     delete_catalog_product,
     prepare_product_deletion,
 )
@@ -30,6 +31,7 @@ def catalog_product(request, product_id):
 
 urlpatterns = [
     path("health/", health),
+    path("api/v1/contacto/", contact_notification),
     path(
         "api/v1/auth/",
         IdentityServiceProxy.as_view(),

@@ -3,10 +3,10 @@
   background: #000;
   background:
     linear-gradient(to right, rgba(0, 0, 0, 0.65), rgba(10, 20, 5, 0.55)),
-    url('./public/img/32.webp');
+    url('/img/32.webp');
   background-size: cover;
   background-position: center center;
-  background-attachment: fixed;
+  background-attachment: scroll;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -15,11 +15,6 @@
   color: #f7efd3;
   position: relative;
   overflow: hidden;
-}
-.overlay {
-  position: absolute; inset: 0;
-  background: linear-gradient(to bottom, transparent 40%, rgba(0, 0, 0, 0.85) 100%);
-  pointer-events: none;
 }
 .content {
   position: relative; z-index: 2;

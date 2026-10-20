@@ -1,8 +1,10 @@
 import json
 import tempfile
+import urllib.error
 from datetime import datetime, timezone
 from io import StringIO
 from pathlib import Path
+from unittest.mock import patch
 
 from django.core.management import call_command
 from django.test import override_settings
@@ -152,6 +154,81 @@ class IdentityApiTests(APITestCase):
         self.assertEqual(deactivation.status_code, status.HTTP_200_OK)
         customer.refresh_from_db()
         self.assertFalse(customer.activo)
+
+    def test_admin_can_promote_customer_and_customer_cannot_change_roles(self):
+        admin = Usuario.objects.create_user(
+            email="admin@example.com",
+            nombre="Admin",
+            password="strong-pass-123",
+            rol=self.admin_role,
+        )
+        customer = Usuario.objects.create_user(
+            email="ana@example.com",
+            nombre="Ana",
+            password="strong-pass-123",
+            rol=self.customer_role,
+        )
+        another_customer = Usuario.objects.create_user(
+            email="luz@example.com",
+            nombre="Luz",
+            password="strong-pass-123",
+            rol=self.customer_role,
+        )
+
+        self.client.force_authenticate(user=admin)
+        promotion = self.client.patch(
+            f"/api/v1/admin/usuarios/{customer.pk}/rol/",
+            {"rol": Rol.ADMIN},
+            format="json",
+        )
+        self.assertEqual(promotion.status_code, status.HTTP_200_OK)
+        customer.refresh_from_db()
+        self.assertEqual(customer.rol.nombre, Rol.ADMIN)
+
+        self.client.force_authenticate(user=another_customer)
+        forbidden = self.client.patch(
+            f"/api/v1/admin/usuarios/{admin.pk}/rol/",
+            {"rol": Rol.CLIENTE},
+            format="json",
+        )
+        self.assertEqual(forbidden.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_cannot_demote_themselves(self):
+        admin = Usuario.objects.create_user(
+            email="admin@example.com",
+            nombre="Admin",
+            password="strong-pass-123",
+            rol=self.admin_role,
+        )
+        self.client.force_authenticate(user=admin)
+
+        response = self.client.patch(
+            f"/api/v1/admin/usuarios/{admin.pk}/rol/",
+            {"rol": Rol.CLIENTE},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        admin.refresh_from_db()
+        self.assertEqual(admin.rol.nombre, Rol.ADMIN)
+
+    @patch(
+        "usuarios.views.urllib.request.urlopen",
+        side_effect=urllib.error.URLError("network unavailable"),
+    )
+    def test_google_exchange_reports_connection_failure(self, mock_urlopen):
+        response = self.client.post(
+            "/api/v1/auth/google/exchange/",
+            {
+                "code": "authorization-code",
+                "redirect_uri": "http://localhost:5173/oauth/google",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["detail"], "No se pudo conectar con Google.")
+        mock_urlopen.assert_called_once()
 
 
 class IdentityDataImportTests(APITestCase):

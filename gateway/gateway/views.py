@@ -4,7 +4,11 @@ import requests
 from django.conf import settings
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_GET, require_http_methods
+from django.views.decorators.http import (
+    require_GET,
+    require_http_methods,
+    require_POST,
+)
 
 
 def _get_json(url, *, headers=None, timeout=None):
@@ -157,6 +161,41 @@ def admin_dashboard(request):
 def _absolute_delta(actual, previous):
     delta = int(actual) - int(previous)
     return f"+{delta}" if delta > 0 else str(delta)
+
+
+@csrf_exempt
+@require_POST
+def contact_notification(request):
+    token = settings.INTERNAL_SERVICE_TOKEN
+    if not token:
+        return JsonResponse(
+            {"detail": "El servicio de notificaciones no está configurado."},
+            status=503,
+        )
+    try:
+        upstream = requests.post(
+            f"{settings.NOTIFICATIONS_SERVICE_URL}/api/internal/notificaciones/contacto/",
+            data=request.body,
+            headers={
+                "Content-Type": request.headers.get(
+                    "Content-Type",
+                    "application/json",
+                ),
+                "X-Internal-Service-Token": token,
+            },
+            timeout=settings.SERVICE_TIMEOUT_SECONDS,
+        )
+    except requests.RequestException:
+        return JsonResponse(
+            {"detail": "El servicio de notificaciones no está disponible."},
+            status=503,
+        )
+
+    return HttpResponse(
+        upstream.content,
+        status=upstream.status_code,
+        content_type=upstream.headers.get("Content-Type"),
+    )
 
 
 @csrf_exempt

@@ -11,6 +11,21 @@ El frontend debe apuntar a `http://127.0.0.1:8010/api/v1`. El gateway usa el
 puerto 8010 por defecto; el puerto 8000 queda reservado para el backend legacy
 mientras se conserva como rollback.
 
+Para iniciar la aplicación completa desde la raíz del repositorio (siete
+servicios, gateway y frontend), ejecuta:
+
+```powershell
+.\run-local.ps1
+```
+
+Abre `http://localhost:5173` y deja abiertas las ventanas de PowerShell. El
+script requiere `backend\venv`, las dependencias instaladas en
+`frontend\node_modules`, las configuraciones protegidas en
+`%LOCALAPPDATA%\CortinasPersianas\config` y bases de datos disponibles con sus
+migraciones aplicadas. No provisiona bases de datos ni crea secretos.
+
+Para iniciar únicamente el gateway, ejecuta desde esta carpeta:
+
 ```powershell
 .\run-local.ps1
 ```
@@ -26,6 +41,11 @@ el de los servicios que atienden llamadas internas.
 
 - Identidad, catálogo, carrito, pedidos y simulador: proxies transparentes que
   mantienen los contratos `/api/v1/...` existentes.
+- Las solicitudes al servicio de pedidos usan un timeout separado de 30
+  segundos por defecto para permitir que el checkout registre el pedido y
+  complete la comunicación síncrona con notificaciones SMTP.
+- `POST /api/v1/contacto/`: reenvía el formulario al servicio de notificaciones
+  con el token interno desde el gateway; el navegador nunca recibe ese secreto.
 - Dashboard: verifica el rol mediante identidad y combina métricas de servicios
   internos.
 - Borrado de producto: valida el rol de administrador, comprueba referencias en

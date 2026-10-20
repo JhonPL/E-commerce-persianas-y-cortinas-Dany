@@ -58,14 +58,35 @@ base del monolito y no debe ejecutarse después de redirigir el tráfico.
 - Los detalles de producto se consultan a `catalog-service`.
 - El checkout obtiene los artículos de `cart-service` y calcula el total en
   este servicio; no confía en importes enviados por el navegador.
+- Al crear el pedido se conserva el nombre del producto junto a su ID como
+  copia histórica para los correos y el detalle del pedido.
 - `payments-simulator` consulta el pedido por una API interna autenticada y
   reporta el resultado simulado. No procesa cobros ni recibe datos de tarjetas.
-- Un rechazo queda registrado para que el cliente pueda reintentar sobre el
-  mismo pedido, pero no aparece en la cola de trabajo del administrador ni
-  puede contarse como venta.
+- Si no se aprueba el pago dentro de cinco minutos desde la creación, el pedido
+  pasa a “Pago rechazado”, se registra en el historial y se notifica al cliente.
+  Los rechazos explícitos del simulador también se notifican; se puede reintentar
+  antes del vencimiento. Ningún pedido sin pago aparece en la cola del
+  administrador ni se cuenta como venta.
+- `expire_unpaid_orders` busca pedidos vencidos. El arranque completo local
+  aplica primero las migraciones y ejecuta un monitor cada 10 segundos; en otros
+  entornos se debe ejecutar el comando como tarea periódica:
+
+  ```powershell
+  python manage.py expire_unpaid_orders
+  python manage.py expire_unpaid_orders --loop --interval 10
+  ```
+
+- El correo inicial del pedido solo confirma la recepción al cliente. El
+  administrador recibe el resumen del pedido y el nombre de sus productos
+  únicamente cuando el simulador aprueba el pago, estado que inicia el flujo
+  como “Pendiente de preparación”.
 - Después de la aprobación, el estado inicial de preparación lo asigna el
   sistema. El administrador solo puede avanzar el pedido en orden: de
-  “Pendiente de preparación” a “Preparado” y después a “Enviado”.
+  “Pendiente de preparación” a “Preparado” y después a “Enviado”. Después de
+  guardar cada transición válida, el servicio solicita a `notifications-service`
+  que notifique el nuevo estado al correo del cliente. Si falla el correo, el
+  cambio de estado se conserva y la respuesta indica el fallo para mostrarlo en
+  el panel.
 - El backend comprueba con este servicio si un producto está asociado a pedidos
   antes de permitir borrarlo y después limpia el carrito mediante
   `cart-service`.

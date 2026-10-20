@@ -17,6 +17,12 @@ test('el carrito del cliente persiste al recargar y puede limpiarse', async ({ p
   await page.getByRole('button', { name: 'Carrito', exact: true }).click()
   await expect(cart).toContainText('Cortina en velo')
   await expect(cart).toContainText('100 × 100 cm')
+  const closeCart = cart.getByRole('button', { name: 'Cerrar carrito' })
+  await expect(closeCart).toBeInViewport()
+  await closeCart.click()
+  await expect(cart).not.toBeInViewport()
+
+  await page.getByRole('button', { name: 'Carrito', exact: true }).click()
   const removeItem = cart.getByRole('button', { name: 'Eliminar Cortina en velo' })
   await expect(removeItem).toBeInViewport()
   await removeItem.click()

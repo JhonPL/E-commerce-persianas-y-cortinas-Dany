@@ -196,6 +196,11 @@ export default function AdminPedidos() {
         setSeleccionado(updated)
         setDetalleCache(c => ({ ...c, [pedidoId]: updated }))
       }
+      if (data.notificacion_estado === 'fallido') {
+        alert('El estado se actualizó, pero no se pudo enviar la notificación al cliente.')
+      } else if (data.notificacion_estado === 'reintentando') {
+        alert('El estado se actualizó, pero aún no se confirmó el envío de la notificación al cliente.')
+      }
     } catch { alert('Error al cambiar el estado') }
   }
 
@@ -299,6 +304,4 @@ export default function AdminPedidos() {
     </div>
   )
 }
-
-
 

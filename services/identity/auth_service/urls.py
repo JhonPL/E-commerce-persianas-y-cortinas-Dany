@@ -18,6 +18,10 @@ urlpatterns = [
         "api/v1/admin/usuarios/<int:usuario_id>/activo/",
         views.AdminUsuarioActivoView.as_view(),
     ),
+    path(
+        "api/v1/admin/usuarios/<int:usuario_id>/rol/",
+        views.AdminUsuarioRolView.as_view(),
+    ),
     path("api/internal/identity/resumen/", views.internal_summary),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path(

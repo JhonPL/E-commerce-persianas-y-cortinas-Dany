@@ -1,12 +1,15 @@
 from decimal import Decimal
+from datetime import timedelta
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import Mock, patch
 
+import requests
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import override_settings
+from django.utils import timezone
 from rest_framework.test import APIClient, APITestCase
 
 from .authentication import RemoteUser
@@ -25,6 +28,7 @@ from .models import (
     INTERNAL_SERVICE_TOKEN="internal-test-token",
     AUTH_SERVICE_URL="http://identity.test/api/v1/auth/me/",
     CATALOGO_SERVICE_INTERNAL_URL="http://catalog.test/api/internal/catalogo",
+    NOTIFICATIONS_SERVICE_URL="http://notifications.test",
 )
 class OrdersServiceTests(APITestCase):
     def setUp(self):
@@ -87,10 +91,18 @@ class OrdersServiceTests(APITestCase):
         self.assertEqual(response.data["pedidos"][0]["detalles"][0]["nombre"], "Blackout")
         self.assertEqual(denied.status_code, 404)
 
-    def test_admin_can_filter_orders_and_change_status(self):
+    @patch("pedidos.views.requests.post")
+    def test_admin_can_filter_orders_and_change_status(self, notification_post):
         admin_client = APIClient()
         admin_client.force_authenticate(user=RemoteUser(4, "admin"))
         prepared = EstadoPedido.objects.create(nombre=EstadoPedido.PREPARADO)
+        notification_post.return_value = Mock(
+            raise_for_status=Mock(),
+            json=lambda: {
+                "pedido_id": self.order.pedido_id,
+                "estado": "enviado",
+            },
+        )
 
         listing = admin_client.get(
             "/api/v1/admin/pedidos/",
@@ -105,8 +117,27 @@ class OrdersServiceTests(APITestCase):
         self.assertEqual(listing.status_code, 200)
         self.assertEqual(listing.data["total"], 1)
         self.assertEqual(changed.status_code, 200)
+        self.assertEqual(changed.data["notificacion_estado"], "enviado")
         self.order.refresh_from_db()
         self.assertEqual(self.order.estado_id, prepared.pk)
+        notification_post.assert_called_once()
+        notification_payload = notification_post.call_args.kwargs["json"]
+        self.assertEqual(notification_payload["pedido_id"], self.order.pedido_id)
+        self.assertEqual(notification_payload["cliente_email"], self.order.cliente_email)
+        self.assertEqual(
+            notification_payload["estado_anterior"],
+            EstadoPedido.PENDIENTE,
+        )
+        self.assertEqual(
+            notification_payload["estado_nuevo"],
+            EstadoPedido.PREPARADO,
+        )
+        self.assertTrue(
+            HistorialEstadoPedido.objects.filter(
+                historial_id=notification_payload["historial_id"],
+                pedido=self.order,
+            ).exists()
+        )
         self.assertTrue(
             HistorialEstadoPedido.objects.filter(
                 pedido=self.order,
@@ -205,13 +236,21 @@ class OrdersServiceTests(APITestCase):
             HistorialEstadoPedido.objects.filter(pedido=awaiting_payment).exists()
         )
 
-    def test_admin_can_advance_prepared_order_to_sent(self):
+    @patch("pedidos.views.requests.post")
+    def test_admin_can_advance_prepared_order_to_sent(self, notification_post):
         admin_client = APIClient()
         admin_client.force_authenticate(user=RemoteUser(4, "admin"))
         prepared = EstadoPedido.objects.create(nombre=EstadoPedido.PREPARADO)
         sent = EstadoPedido.objects.create(nombre=EstadoPedido.ENVIADO)
         self.order.estado = prepared
         self.order.save(update_fields=["estado"])
+        notification_post.return_value = Mock(
+            raise_for_status=Mock(),
+            json=lambda: {
+                "pedido_id": self.order.pedido_id,
+                "estado": "enviado",
+            },
+        )
 
         changed = admin_client.patch(
             f"/api/v1/admin/pedidos/{self.order.pk}/estado/",
@@ -220,8 +259,34 @@ class OrdersServiceTests(APITestCase):
         )
 
         self.assertEqual(changed.status_code, 200)
+        self.assertEqual(changed.data["notificacion_estado"], "enviado")
         self.order.refresh_from_db()
         self.assertEqual(self.order.estado_id, sent.pk)
+        notification_post.assert_called_once()
+
+    @patch(
+        "pedidos.views.requests.post",
+        side_effect=requests.ConnectionError("notifications unavailable"),
+    )
+    def test_admin_state_change_is_kept_when_notification_service_is_unavailable(
+        self,
+        notification_post,
+    ):
+        admin_client = APIClient()
+        admin_client.force_authenticate(user=RemoteUser(4, "admin"))
+        prepared = EstadoPedido.objects.create(nombre=EstadoPedido.PREPARADO)
+
+        changed = admin_client.patch(
+            f"/api/v1/admin/pedidos/{self.order.pk}/estado/",
+            {"estado_id": prepared.pk},
+            format="json",
+        )
+
+        self.assertEqual(changed.status_code, 200)
+        self.assertEqual(changed.data["notificacion_estado"], "fallido")
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.estado_id, prepared.pk)
+        notification_post.assert_called_once()
 
     def test_internal_product_reference_check_is_service_authenticated(self):
         internal_client = APIClient()
@@ -343,7 +408,14 @@ class ImportOrdersCommandTests(APITestCase):
 )
 class CheckoutTests(APITestCase):
     def setUp(self):
-        self.client.force_authenticate(user=RemoteUser(17, "cliente"))
+        self.client.force_authenticate(
+            user=RemoteUser(
+                17,
+                "cliente",
+                nombre="Cliente demo",
+                email="cliente@example.test",
+            )
+        )
         self.payload = {
             "direccion": {
                 "departamento": "Cundinamarca",
@@ -362,11 +434,29 @@ class CheckoutTests(APITestCase):
             "precio_m2": "120000.00",
         }
 
+    @patch("pedidos.views.requests.post")
     @patch("pedidos.views.requests.get")
-    def test_checkout_uses_service_cart_prices_not_client_total(self, cart_get):
+    @patch("pedidos.views.get_catalog_products")
+    def test_checkout_uses_service_cart_prices_not_client_total(
+        self,
+        catalog_products,
+        cart_get,
+        notification_post,
+    ):
+        catalog_products.return_value = {
+            21: {"nombre": "Cortina Blackout"},
+        }
         cart_get.return_value = Mock(
             raise_for_status=Mock(),
             json=lambda: {"items": [self.cart_item]},
+        )
+        notification_post.return_value = Mock(
+            raise_for_status=Mock(),
+            json=lambda: {
+                "pedido_id": Pedido.objects.latest("pedido_id").pedido_id,
+                "admin_estado": "omitido",
+                "cliente_estado": "enviado",
+            },
         )
 
         response = self.client.post(
@@ -378,13 +468,32 @@ class CheckoutTests(APITestCase):
 
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data["total"], "480000.00")
+        self.assertEqual(response.data["notificacion"], "enviado")
         self.assertEqual(Pedido.objects.get().total, Decimal("480000.00"))
         self.assertEqual(
             DetallePedido.objects.get().precio_total,
             Decimal("480000.00"),
         )
+        self.assertEqual(
+            DetallePedido.objects.get().producto_nombre,
+            "Cortina Blackout",
+        )
         self.assertEqual(response.data["estado"], "Pendiente de pago")
         cart_get.assert_called_once()
+        notification_post.assert_called_once()
+        notification_payload = notification_post.call_args.kwargs["json"]
+        self.assertEqual(notification_payload["cliente_email"], "cliente@example.test")
+        self.assertEqual(notification_payload["detalles"][0]["producto_id"], 21)
+        self.assertEqual(
+            notification_payload["detalles"][0]["producto_nombre"],
+            "Cortina Blackout",
+        )
+        self.assertEqual(
+            notification_post.call_args.kwargs["headers"][
+                "X-Internal-Service-Token"
+            ],
+            "internal-test-token",
+        )
 
     @patch("pedidos.views.requests.get")
     def test_checkout_rejects_an_empty_cart(self, cart_get):
@@ -402,6 +511,41 @@ class CheckoutTests(APITestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertFalse(Pedido.objects.exists())
+
+    @patch(
+        "pedidos.views.requests.post",
+        side_effect=requests.ConnectionError("notifications unavailable"),
+    )
+    @patch("pedidos.views.requests.get")
+    @patch("pedidos.views.get_catalog_products")
+    def test_checkout_keeps_order_and_reports_notification_failure(
+        self,
+        catalog_products,
+        cart_get,
+        notification_post,
+    ):
+        catalog_products.return_value = {
+            21: {"nombre": "Cortina Blackout"},
+        }
+        cart_get.return_value = Mock(
+            raise_for_status=Mock(),
+            json=lambda: {"items": [self.cart_item]},
+        )
+
+        response = self.client.post(
+            "/api/v1/pedidos/checkout/",
+            self.payload,
+            format="json",
+            HTTP_AUTHORIZATION="******",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["notificacion"], "fallido")
+        self.assertEqual(
+            Pedido.objects.filter(cliente_email="cliente@example.test").count(),
+            1,
+        )
+        notification_post.assert_called_once()
 
 
 @override_settings(INTERNAL_SERVICE_TOKEN="internal-test-token")
@@ -424,6 +568,31 @@ class InternalPaymentResultTests(APITestCase):
             estado=self.pending,
             total="480000.00",
         )
+        DetallePedido.objects.create(
+            pedido=self.order,
+            producto=21,
+            producto_nombre="Cortina Blackout",
+            cantidad=1,
+            ancho_cm="100.00",
+            alto_cm="200.00",
+            area_m2="2.0000",
+            precio_m2="240000.00",
+            precio_total="480000.00",
+        )
+        notification_patcher = patch(
+            "pedidos.views.requests.post",
+            return_value=Mock(
+                raise_for_status=Mock(),
+                json=lambda: {
+                    "pedido_id": self.order.pedido_id,
+                    "admin_estado": "enviado",
+                    "cliente_estado": "enviado",
+                    "estado": "enviado",
+                },
+            ),
+        )
+        self.notification_post = notification_patcher.start()
+        self.addCleanup(notification_patcher.stop)
 
     def test_internal_payment_result_updates_order_state(self):
         response = self.client.post(
@@ -441,6 +610,78 @@ class InternalPaymentResultTests(APITestCase):
         self.order.refresh_from_db()
         self.assertEqual(self.order.estado.nombre, "Pendiente de preparación")
         self.assertEqual(self.order.referencia_pago, "demo-reference-31")
+        self.notification_post.assert_called_once()
+        self.assertIn(
+            "/api/internal/notificaciones/pedidos/",
+            self.notification_post.call_args.args[0],
+        )
+        self.assertEqual(
+            self.notification_post.call_args.kwargs["json"]["detalles"][0][
+                "producto_nombre"
+            ],
+            "Cortina Blackout",
+        )
+
+    def test_expired_unpaid_order_is_rejected_and_customer_is_notified(self):
+        self.order.fecha_pedido = timezone.now() - timedelta(minutes=5, seconds=1)
+        self.order.save(update_fields=["fecha_pedido"])
+
+        call_command("expire_unpaid_orders")
+
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.estado.nombre, "Pago rechazado")
+        self.assertTrue(
+            HistorialEstadoPedido.objects.filter(
+                pedido=self.order,
+                notas_cambio__contains="venció el plazo de cinco minutos",
+            ).exists()
+        )
+        self.notification_post.assert_called_once()
+        self.assertIn(
+            "/api/internal/notificaciones/pedidos/estado/",
+            self.notification_post.call_args.args[0],
+        )
+        self.assertEqual(
+            self.notification_post.call_args.kwargs["json"]["estado_nuevo"],
+            "Pago rechazado",
+        )
+
+    def test_payment_context_rejects_expired_order_and_prevents_late_payment(self):
+        self.order.fecha_pedido = timezone.now() - timedelta(minutes=5, seconds=1)
+        self.order.save(update_fields=["fecha_pedido"])
+
+        response = self.client.get(
+            f"/api/internal/pedidos/{self.order.pk}/payment-context/",
+            HTTP_X_INTERNAL_SERVICE_TOKEN="internal-test-token",
+        )
+
+        self.assertEqual(response.status_code, 409)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.estado.nombre, "Pago rechazado")
+        self.notification_post.assert_called_once()
+
+    def test_late_payment_result_rejects_order_without_admin_payment_notice(self):
+        self.order.fecha_pedido = timezone.now() - timedelta(minutes=5, seconds=1)
+        self.order.save(update_fields=["fecha_pedido"])
+
+        response = self.client.post(
+            f"/api/internal/pedidos/{self.order.pk}/payment-result/",
+            {
+                "outcome": "approved",
+                "payment_reference": "late-reference",
+                "amount": "480000.00",
+            },
+            format="json",
+            HTTP_X_INTERNAL_SERVICE_TOKEN="internal-test-token",
+        )
+
+        self.assertEqual(response.status_code, 409)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.estado.nombre, "Pago rechazado")
+        self.assertIn(
+            "/api/internal/notificaciones/pedidos/estado/",
+            self.notification_post.call_args.args[0],
+        )
 
     def test_internal_payment_result_rejects_amount_mismatch(self):
         response = self.client.post(

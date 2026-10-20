@@ -1,6 +1,10 @@
+import json
+import logging
+import urllib.error
+import urllib.parse
+import urllib.request
 from datetime import timedelta
 
-import requests
 from django.conf import settings
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
@@ -20,12 +24,15 @@ from .permissions import EsAdmin, EsInternalService
 from .serializers import (
     ActualizarClienteSerializer,
     AdminUsuarioSerializer,
+    AdminUsuarioRolSerializer,
     ClienteSerializer,
     LoginSerializer,
     RegistroSerializer,
     UsuarioActivoSerializer,
     UsuarioSerializer,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class RegistroView(generics.CreateAPIView):
@@ -157,28 +164,38 @@ class GoogleCodeExchangeView(APIView):
                 {"detail": "redirect_uri no permitido."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        try:
-            token_response = requests.post(
-                "https://oauth2.googleapis.com/token",
-                data={
+        token_request = urllib.request.Request(
+            "https://oauth2.googleapis.com/token",
+            data=urllib.parse.urlencode(
+                {
                     "code": code,
                     "client_id": settings.SOCIAL_AUTH_GOOGLE_OAUTH2_KEY,
                     "client_secret": settings.SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET,
                     "redirect_uri": redirect_uri,
                     "grant_type": "authorization_code",
-                },
-                timeout=10,
-            )
-        except requests.RequestException:
+                }
+            ).encode("ascii"),
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(token_request, timeout=10) as response:
+                token_status = response.status
+                token_body = response.read()
+        except urllib.error.HTTPError as error:
+            token_status = error.code
+            token_body = error.read()
+        except (urllib.error.URLError, OSError, TimeoutError) as error:
+            logger.warning("Google OAuth token exchange connection failed: %s", error)
             return Response(
                 {"detail": "No se pudo conectar con Google."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         try:
-            token_data = token_response.json()
+            token_data = json.loads(token_body)
         except ValueError:
             token_data = {}
-        if token_response.status_code >= 400:
+        if token_status >= 400:
             message = (
                 token_data.get("error_description")
                 or token_data.get("error")
@@ -279,6 +296,32 @@ class AdminUsuarioActivoView(APIView):
         user.activo = serializer.validated_data["activo"]
         user.save(update_fields=["activo"])
         return Response({"usuario_id": user.usuario_id, "activo": user.activo})
+
+
+class AdminUsuarioRolView(APIView):
+    permission_classes = [IsAuthenticated, EsAdmin]
+
+    def patch(self, request, usuario_id):
+        user = Usuario.objects.select_related("rol").filter(usuario_id=usuario_id).first()
+        if not user:
+            return Response(
+                {"detail": "Usuario no encontrado."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = AdminUsuarioRolSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        role_name = serializer.validated_data["rol"]
+        if user.usuario_id == request.user.usuario_id and role_name != Rol.ADMIN:
+            return Response(
+                {"detail": "No puedes quitarte tu propio rol de administrador."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if user.rol.nombre != role_name:
+            user.rol, _ = Rol.objects.get_or_create(nombre=role_name)
+            user.save(update_fields=["rol"])
+        return Response({"usuario_id": user.usuario_id, "rol": user.rol.nombre})
 
 
 @api_view(["GET"])

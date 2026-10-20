@@ -148,6 +148,7 @@ class Command(BaseCommand):
                             detalle_id=item["detalle_id"],
                             pedido_id=item["pedido_id"],
                             producto=item["producto_id"],
+                            producto_nombre=item.get("producto_nombre", ""),
                             cantidad=item["cantidad"],
                             ancho_cm=item["ancho_cm"],
                             alto_cm=item["alto_cm"],

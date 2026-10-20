@@ -1,7 +1,12 @@
 from django.urls import path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
-from notificaciones.views import PedidoApprovedNotificationView
+from notificaciones.views import (
+    ContactMessageNotificationView,
+    PedidoApprovedNotificationView,
+    PedidoCreatedNotificationView,
+    PedidoStatusChangedNotificationView,
+)
 
 
 urlpatterns = [
@@ -9,6 +14,21 @@ urlpatterns = [
         "api/internal/notificaciones/pedidos/",
         PedidoApprovedNotificationView.as_view(),
         name="notify-approved-order",
+    ),
+    path(
+        "api/internal/notificaciones/pedidos/nuevo/",
+        PedidoCreatedNotificationView.as_view(),
+        name="notify-created-order",
+    ),
+    path(
+        "api/internal/notificaciones/pedidos/estado/",
+        PedidoStatusChangedNotificationView.as_view(),
+        name="notify-order-status-changed",
+    ),
+    path(
+        "api/internal/notificaciones/contacto/",
+        ContactMessageNotificationView.as_view(),
+        name="notify-contact-message",
     ),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path(

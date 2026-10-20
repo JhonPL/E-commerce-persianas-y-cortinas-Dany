@@ -1,5 +1,7 @@
 from unittest.mock import Mock, patch
 
+import requests
+
 from django.test import SimpleTestCase, override_settings
 
 
@@ -39,6 +41,88 @@ class ServiceProxyTests(SimpleTestCase):
         self.assertEqual(
             request.call_args.kwargs["headers"]["Authorization"],
             "Bearer customer-token",
+        )
+
+
+@override_settings(
+    ORDERS_SERVICE_URL="http://orders.test",
+    SERVICE_TIMEOUT_SECONDS=3,
+    ORDERS_SERVICE_TIMEOUT_SECONDS=30,
+)
+class OrdersServiceProxyTests(SimpleTestCase):
+    @patch("gateway.proxies.requests.request")
+    def test_checkout_proxy_uses_extended_orders_timeout(self, request):
+        request.return_value = Mock(
+            content=b'{"pedido_id":42}',
+            status_code=201,
+            headers={"Content-Type": "application/json"},
+        )
+
+        response = self.client.post(
+            "/api/v1/pedidos/checkout/",
+            data='{"direccion":{}}',
+            content_type="application/json",
+            HTTP_AUTHORIZATION="Bearer customer-token",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(
+            request.call_args.args[:2],
+            ("POST", "http://orders.test/api/v1/pedidos/checkout/"),
+        )
+        self.assertEqual(request.call_args.kwargs["timeout"], 30)
+
+
+@override_settings(
+    NOTIFICATIONS_SERVICE_URL="http://notifications.test",
+    INTERNAL_SERVICE_TOKEN="gateway-internal-test-token",
+    SERVICE_TIMEOUT_SECONDS=3,
+)
+class ContactNotificationProxyTests(SimpleTestCase):
+    @patch("gateway.views.requests.post")
+    def test_contact_form_is_forwarded_with_internal_token(self, post):
+        post.return_value = Mock(
+            content=b'{"estado":"enviado"}',
+            status_code=200,
+            headers={"Content-Type": "application/json"},
+        )
+
+        response = self.client.post(
+            "/api/v1/contacto/",
+            data='{"nombre":"Cliente","email":"cliente@example.com","mensaje":"Hola"}',
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, b'{"estado":"enviado"}')
+        self.assertEqual(
+            post.call_args.args,
+            ("http://notifications.test/api/internal/notificaciones/contacto/",),
+        )
+        self.assertEqual(
+            post.call_args.kwargs["headers"]["X-Internal-Service-Token"],
+            "gateway-internal-test-token",
+        )
+        self.assertEqual(
+            post.call_args.kwargs["data"],
+            b'{"nombre":"Cliente","email":"cliente@example.com","mensaje":"Hola"}',
+        )
+
+    @patch(
+        "gateway.views.requests.post",
+        side_effect=requests.ConnectionError("offline"),
+    )
+    def test_contact_form_reports_notification_service_unavailability(self, post):
+        response = self.client.post(
+            "/api/v1/contacto/",
+            data='{"nombre":"Cliente","email":"cliente@example.com","mensaje":"Hola"}',
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            response.json()["detail"],
+            "El servicio de notificaciones no está disponible.",
         )
 
 

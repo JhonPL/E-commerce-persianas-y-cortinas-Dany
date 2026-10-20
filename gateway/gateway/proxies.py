@@ -10,6 +10,7 @@ from django.views.decorators.csrf import csrf_exempt
 class ServiceProxy(View):
     service_url_setting = ""
     service_label = ""
+    timeout_setting = "SERVICE_TIMEOUT_SECONDS"
 
     def dispatch(self, request, *args, **kwargs):
         prefixes = kwargs.pop("prefixes", ())
@@ -44,7 +45,7 @@ class ServiceProxy(View):
                 params=params,
                 data=request.body if request.method not in ("GET", "HEAD") else None,
                 headers=headers,
-                timeout=settings.SERVICE_TIMEOUT_SECONDS,
+                timeout=getattr(settings, self.timeout_setting),
                 allow_redirects=False,
             )
         except requests.RequestException:
@@ -82,6 +83,7 @@ class CartServiceProxy(ServiceProxy):
 class OrdersServiceProxy(ServiceProxy):
     service_url_setting = "ORDERS_SERVICE_URL"
     service_label = "pedidos"
+    timeout_setting = "ORDERS_SERVICE_TIMEOUT_SECONDS"
 
 
 class PaymentsServiceProxy(ServiceProxy):

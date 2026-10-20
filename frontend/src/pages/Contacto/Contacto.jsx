@@ -1,5 +1,6 @@
 import { createElement, useState } from 'react'
 import { MapPin, Phone, Mail, Clock, Send, CheckCircle, MessageCircle } from 'lucide-react'
+import { API_URL } from '../../config/api'
 import styles from './Contacto.module.css'
 
 const WHATSAPP = '573123558218'
@@ -9,8 +10,13 @@ export default function Contacto() {
   const [errors, setErrors] = useState({})
   const [sent, setSent]     = useState(false)
   const [loading, setLoading] = useState(false)
+  const [submitError, setSubmitError] = useState('')
 
-  const f = (k, v) => { setForm(p => ({ ...p, [k]: v })); setErrors(p => ({ ...p, [k]: '' })) }
+  const f = (k, v) => {
+    setForm(p => ({ ...p, [k]: v }))
+    setErrors(p => ({ ...p, [k]: '' }))
+    setSubmitError('')
+  }
 
   const validate = () => {
     const e = {}
@@ -22,13 +28,27 @@ export default function Contacto() {
     return Object.keys(e).length === 0
   }
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (event) => {
+    event.preventDefault()
     if (!validate()) return
     setLoading(true)
-    // TODO: POST /api/contacto
-    await new Promise(r => setTimeout(r, 1000))
-    setLoading(false)
-    setSent(true)
+    setSubmitError('')
+    try {
+      const response = await fetch(`${API_URL}/contacto/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok || data.estado !== 'enviado') {
+        throw new Error(data.detail || 'No fue posible enviar el mensaje. Inténtalo de nuevo.')
+      }
+      setSent(true)
+    } catch (error) {
+      setSubmitError(error.message || 'No fue posible enviar el mensaje. Inténtalo de nuevo.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleWhatsApp = () => {
@@ -99,7 +119,7 @@ export default function Contacto() {
           </div>
 
           {/* Columna derecha: formulario */}
-          <div className={styles.formCol}>
+          <form className={styles.formCol} onSubmit={handleSubmit} noValidate>
             {sent ? (
               <div className={styles.successBox}>
                 <CheckCircle size={48} color="#8fc263" />
@@ -107,7 +127,7 @@ export default function Contacto() {
                 <p className={styles.successSub}>
                   Gracias por contactarnos. Te responderemos en menos de 24 horas.
                 </p>
-                <button className={styles.btnPrimary} onClick={() => { setSent(false); setForm({ nombre: '', email: '', asunto: '', mensaje: '' }) }}>
+                <button type="button" className={styles.btnPrimary} onClick={() => { setSent(false); setForm({ nombre: '', email: '', asunto: '', mensaje: '' }); setSubmitError('') }}>
                   Enviar otro mensaje
                 </button>
               </div>
@@ -118,40 +138,46 @@ export default function Contacto() {
 
                 <div className={styles.formGrid}>
                   <div className={styles.field}>
-                    <label className={styles.label}>Nombre <span className={styles.req}>*</span></label>
+                    <label className={styles.label} htmlFor="contact-name">Nombre <span className={styles.req}>*</span></label>
                     <input className={`${styles.input} ${errors.nombre ? styles.inputErr : ''}`}
+                      id="contact-name" name="nombre" maxLength={120} required
                       placeholder="Tu nombre completo" value={form.nombre}
                       onChange={e => f('nombre', e.target.value)} />
                     {errors.nombre && <span className={styles.fieldErr}>{errors.nombre}</span>}
                   </div>
 
                   <div className={styles.field}>
-                    <label className={styles.label}>Correo electrónico <span className={styles.req}>*</span></label>
+                    <label className={styles.label} htmlFor="contact-email">Correo electrónico <span className={styles.req}>*</span></label>
                     <input className={`${styles.input} ${errors.email ? styles.inputErr : ''}`}
+                      id="contact-email" name="email" maxLength={150} required
                       type="email" placeholder="tu@correo.com" value={form.email}
                       onChange={e => f('email', e.target.value)} />
                     {errors.email && <span className={styles.fieldErr}>{errors.email}</span>}
                   </div>
 
                   <div className={`${styles.field} ${styles.fieldFull}`}>
-                    <label className={styles.label}>Asunto</label>
+                    <label className={styles.label} htmlFor="contact-subject">Asunto</label>
                     <input className={styles.input}
+                      id="contact-subject" name="asunto" maxLength={150}
                       placeholder="¿En qué podemos ayudarte?" value={form.asunto}
                       onChange={e => f('asunto', e.target.value)} />
                   </div>
 
                   <div className={`${styles.field} ${styles.fieldFull}`}>
-                    <label className={styles.label}>Mensaje <span className={styles.req}>*</span></label>
+                    <label className={styles.label} htmlFor="contact-message">Mensaje <span className={styles.req}>*</span></label>
                     <textarea className={`${styles.input} ${styles.textarea} ${errors.mensaje ? styles.inputErr : ''}`}
+                      id="contact-message" name="mensaje" maxLength={3000} required
                       placeholder="Escribe tu consulta aquí..." rows={5}
                       value={form.mensaje} onChange={e => f('mensaje', e.target.value)} />
                     {errors.mensaje && <span className={styles.fieldErr}>{errors.mensaje}</span>}
                   </div>
                 </div>
 
+                {submitError && <p className={styles.fieldErr} role="alert">{submitError}</p>}
                 <button
+                  type="submit"
                   className={`${styles.btnPrimary} ${loading ? styles.btnLoading : ''}`}
-                  onClick={handleSubmit} disabled={loading}
+                  disabled={loading}
                 >
                   {loading
                     ? <span className={styles.spinner} />
@@ -160,7 +186,7 @@ export default function Contacto() {
                 </button>
               </>
             )}
-          </div>
+          </form>
         </div>
       </section>
     </div>

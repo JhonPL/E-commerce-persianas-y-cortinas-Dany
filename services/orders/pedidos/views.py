@@ -1,3 +1,4 @@
+import logging
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
@@ -49,6 +50,8 @@ ADMIN_STATE_TRANSITIONS = {
     EstadoPedido.PREPARADO: (EstadoPedido.ENVIADO,),
     EstadoPedido.ENVIADO: (),
 }
+logger = logging.getLogger(__name__)
+PAYMENT_TIMEOUT = timedelta(minutes=5)
 
 
 class CheckoutAddressSerializer(serializers.Serializer):
@@ -141,6 +144,241 @@ def _calculate_checkout_items(items):
     return prepared, total.quantize(Decimal("0.01"))
 
 
+def _notify_order_created(order):
+    token = settings.INTERNAL_SERVICE_TOKEN
+    if not token:
+        logger.error(
+            "Order %s was created but its notification token is not configured.",
+            order.pedido_id,
+        )
+        return "fallido"
+
+    address = order.direccion
+    address_text = ", ".join(
+        part
+        for part in (
+            f"{address.calle} {address.numero}",
+            address.barrio,
+            address.ciudad.nombre,
+            address.ciudad.departamento.nombre,
+            address.complemento,
+        )
+        if part
+    )
+    payload = {
+        "pedido_id": order.pedido_id,
+        "cliente_nombre": order.cliente_nombre,
+        "cliente_email": order.cliente_email,
+        "total": str(order.total),
+        "direccion": address_text,
+        "detalles": [
+            {
+                "producto_id": item.producto,
+                "producto_nombre": item.producto_nombre
+                or f"Producto #{item.producto}",
+                "cantidad": item.cantidad,
+                "ancho_cm": str(item.ancho_cm),
+                "alto_cm": str(item.alto_cm),
+                "precio_total": str(item.precio_total),
+            }
+            for item in order.detalles.all()
+        ],
+    }
+
+    try:
+        response = requests.post(
+            (
+                f"{settings.NOTIFICATIONS_SERVICE_URL}"
+                "/api/internal/notificaciones/pedidos/nuevo/"
+            ),
+            json=payload,
+            headers={"X-Internal-Service-Token": token},
+            timeout=settings.SERVICE_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        result = response.json()
+    except (requests.RequestException, ValueError):
+        logger.exception(
+            "Order %s was created but its notification could not be delivered.",
+            order.pedido_id,
+        )
+        return "fallido"
+
+    if (
+        not isinstance(result, dict)
+        or result.get("pedido_id") != order.pedido_id
+        or result.get("admin_estado") != "omitido"
+        or result.get("cliente_estado") != "enviado"
+    ):
+        logger.error(
+            "Order %s notification delivery was incomplete.",
+            order.pedido_id,
+        )
+        return "fallido"
+    return "enviado"
+
+
+def _notify_payment_approved(order):
+    token = settings.INTERNAL_SERVICE_TOKEN
+    if not token:
+        logger.error(
+            "Order %s was paid but its notification token is not configured.",
+            order.pedido_id,
+        )
+        return "fallido"
+
+    try:
+        response = requests.post(
+            (
+                f"{settings.NOTIFICATIONS_SERVICE_URL}"
+                "/api/internal/notificaciones/pedidos/"
+            ),
+            json={
+                "pedido_id": order.pedido_id,
+                "cliente_nombre": order.cliente_nombre,
+                "cliente_email": order.cliente_email,
+                "total": str(order.total),
+                "detalles": [
+                    {
+                        "producto_id": item.producto,
+                        "producto_nombre": item.producto_nombre,
+                        "cantidad": item.cantidad,
+                        "ancho_cm": str(item.ancho_cm),
+                        "alto_cm": str(item.alto_cm),
+                        "precio_total": str(item.precio_total),
+                    }
+                    for item in order.detalles.all()
+                ],
+            },
+            headers={"X-Internal-Service-Token": token},
+            timeout=settings.SERVICE_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        result = response.json()
+    except (requests.RequestException, ValueError):
+        logger.exception(
+            "Order %s was paid but its notification could not be delivered.",
+            order.pedido_id,
+        )
+        return "fallido"
+
+    if (
+        not isinstance(result, dict)
+        or result.get("pedido_id") != order.pedido_id
+        or result.get("admin_estado") != "enviado"
+        or result.get("cliente_estado") != "enviado"
+    ):
+        logger.error(
+            "Order %s payment notification delivery was incomplete.",
+            order.pedido_id,
+        )
+        return "fallido"
+    return "enviado"
+
+
+def _notify_order_status_changed(order, previous_state, history_id):
+    token = settings.INTERNAL_SERVICE_TOKEN
+    if not token:
+        logger.error(
+            "Order %s state changed but its notification token is not configured.",
+            order.pedido_id,
+        )
+        return "fallido"
+
+    try:
+        response = requests.post(
+            (
+                f"{settings.NOTIFICATIONS_SERVICE_URL}"
+                "/api/internal/notificaciones/pedidos/estado/"
+            ),
+            json={
+                "pedido_id": order.pedido_id,
+                "historial_id": history_id,
+                "cliente_nombre": order.cliente_nombre,
+                "cliente_email": order.cliente_email,
+                "estado_anterior": previous_state,
+                "estado_nuevo": order.estado.nombre,
+            },
+            headers={"X-Internal-Service-Token": token},
+            timeout=settings.SERVICE_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        result = response.json()
+    except (requests.RequestException, ValueError):
+        logger.exception(
+            "Order %s state changed but its customer notification failed.",
+            order.pedido_id,
+        )
+        return "fallido"
+
+    if (
+        not isinstance(result, dict)
+        or result.get("pedido_id") != order.pedido_id
+        or result.get("estado") not in ("enviado", "reintentando")
+    ):
+        logger.error(
+            "Order %s state notification delivery was incomplete.",
+            order.pedido_id,
+        )
+        return "fallido"
+    return result["estado"]
+
+
+def _expire_unpaid_order(order_id, now=None):
+    now = now or timezone.now()
+    with transaction.atomic():
+        order = (
+            Pedido.objects.select_for_update()
+            .select_related("estado")
+            .filter(pedido_id=order_id)
+            .first()
+        )
+        if (
+            order is None
+            or order.estado.nombre != "Pendiente de pago"
+            or order.fecha_pedido > now - PAYMENT_TIMEOUT
+        ):
+            return None
+
+        rejected_state, _ = EstadoPedido.objects.get_or_create(
+            nombre="Pago rechazado",
+        )
+        order.estado = rejected_state
+        order.save(update_fields=["estado"])
+        history = HistorialEstadoPedido.objects.create(
+            pedido=order,
+            estado=rejected_state,
+            cambiado_por=0,
+            notas_cambio=(
+                "Pago simulado rechazado automáticamente: venció el plazo de "
+                "cinco minutos."
+            ),
+        )
+
+    notification_status = _notify_order_status_changed(
+        order,
+        "Pendiente de pago",
+        history.historial_id,
+    )
+    return order, notification_status
+
+
+def _expire_due_unpaid_orders(now=None):
+    now = now or timezone.now()
+    expired_ids = list(
+        Pedido.objects.filter(
+            estado__nombre="Pendiente de pago",
+            fecha_pedido__lte=now - PAYMENT_TIMEOUT,
+        )
+        .order_by("pedido_id")
+        .values_list("pedido_id", flat=True)
+    )
+    return sum(
+        _expire_unpaid_order(order_id, now=now) is not None
+        for order_id in expired_ids
+    )
+
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def checkout(request):
@@ -158,6 +396,11 @@ def checkout(request):
     order_items, total = _calculate_checkout_items(cart_items)
     if total <= 0:
         raise ValidationError({"carrito": "El total del pedido debe ser mayor a cero."})
+    catalog_products = get_catalog_products(
+        (item["producto"] for item in order_items),
+    )
+    for item in order_items:
+        item["producto_nombre"] = catalog_products[item["producto"]]["nombre"]
 
     address_data = address_serializer.validated_data
     with transaction.atomic():
@@ -202,12 +445,14 @@ def checkout(request):
             notas_cambio="Pedido creado; pago simulado pendiente.",
         )
 
+    notification_status = _notify_order_created(order)
     return Response(
         {
             "pedido_id": order.pedido_id,
             "total": str(order.total),
             "estado": pending_state.nombre,
             "simulacion": True,
+            "notificacion": notification_status,
         },
         status=status.HTTP_201_CREATED,
     )
@@ -351,19 +596,26 @@ def admin_pedido_cambiar_estado(request, pedido_id):
             raise ValidationError(
                 {"estado_id": "El pedido solo puede avanzar de pendiente a preparado y luego a enviado."}
             )
+        previous_state = order.estado.nombre
         order.estado = new_state
         order.save(update_fields=["estado"])
-        HistorialEstadoPedido.objects.create(
+        history = HistorialEstadoPedido.objects.create(
             pedido=order,
             estado=new_state,
             cambiado_por=request.user.usuario_id,
         )
 
+    notification_status = _notify_order_status_changed(
+        order,
+        previous_state,
+        history.historial_id,
+    )
     return Response(
         {
             "pedido_id": order.pedido_id,
             "estado_id": new_state.estado_id,
             "estado_nombre": new_state.nombre,
+            "notificacion_estado": notification_status,
         }
     )
 
@@ -537,10 +789,29 @@ def internal_dashboard(request):
 def internal_payment_context(request, pedido_id):
     if not getattr(request.user, "is_internal_service", False):
         raise AuthenticationFailed("Se requiere autenticación de servicio.")
+    expired_order = _expire_unpaid_order(pedido_id)
+    if expired_order is not None:
+        return Response(
+            {
+                "detail": (
+                    "El plazo de pago de cinco minutos venció y el pedido fue "
+                    "rechazado."
+                )
+            },
+            status=status.HTTP_409_CONFLICT,
+        )
     order = get_object_or_404(
         Pedido.objects.select_related("estado"),
         pedido_id=pedido_id,
     )
+    if (
+        order.fecha_pedido <= timezone.now() - PAYMENT_TIMEOUT
+        and order.estado.nombre == "Pago rechazado"
+    ):
+        return Response(
+            {"detail": "El plazo de pago de cinco minutos venció."},
+            status=status.HTTP_409_CONFLICT,
+        )
     if order.estado.nombre == "Pendiente de preparación":
         return Response(
             {"detail": "El pedido ya tiene un pago aprobado."},
@@ -575,6 +846,10 @@ def internal_payment_result(request, pedido_id):
     except (TypeError, ValueError, InvalidOperation) as exc:
         raise ValidationError({"amount": "El importe del pago no es válido."}) from exc
 
+    expired = False
+    duplicate = False
+    notification_history_id = None
+    previous_state = None
     with transaction.atomic():
         order = get_object_or_404(
             Pedido.objects.select_for_update().select_related("estado"),
@@ -586,40 +861,105 @@ def internal_payment_result(request, pedido_id):
             )
         if order.estado.nombre == "Pendiente de preparación":
             if order.referencia_pago == reference and outcome == "approved":
-                return Response({"pedido_id": order.pedido_id, "duplicate": True})
+                duplicate = True
+            else:
+                return Response(
+                    {"detail": "El pedido ya tiene un pago aprobado."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+        elif (
+            order.estado.nombre == "Pago rechazado"
+            and order.fecha_pedido <= timezone.now() - PAYMENT_TIMEOUT
+        ):
             return Response(
-                {"detail": "El pedido ya tiene un pago aprobado."},
+                {"detail": "El plazo de pago de cinco minutos venció."},
                 status=status.HTTP_409_CONFLICT,
             )
-
-        next_state_name = (
-            "Pendiente de preparación" if outcome == "approved" else "Pago rechazado"
-        )
-        if (
-            order.referencia_pago == reference
-            and order.estado.nombre == next_state_name
+        elif (
+            order.estado.nombre == "Pendiente de pago"
+            and order.fecha_pedido <= timezone.now() - PAYMENT_TIMEOUT
         ):
-            return Response({"pedido_id": order.pedido_id, "duplicate": True})
-        next_state, _ = EstadoPedido.objects.get_or_create(nombre=next_state_name)
-        order.estado = next_state
-        order.referencia_pago = str(reference)
-        order.save(update_fields=["estado", "referencia_pago"])
-        HistorialEstadoPedido.objects.create(
-            pedido=order,
-            estado=next_state,
-            cambiado_por=order.usuario,
-            notas_cambio=(
-                "Pago aprobado por el simulador."
-                if outcome == "approved"
-                else "Pago rechazado por el simulador."
-            ),
+            previous_state = order.estado.nombre
+            next_state, _ = EstadoPedido.objects.get_or_create(
+                nombre="Pago rechazado",
+            )
+            order.estado = next_state
+            order.save(update_fields=["estado"])
+            history = HistorialEstadoPedido.objects.create(
+                pedido=order,
+                estado=next_state,
+                cambiado_por=0,
+                notas_cambio=(
+                    "Pago simulado rechazado automáticamente: venció el plazo de "
+                    "cinco minutos."
+                ),
+            )
+            notification_history_id = history.historial_id
+            expired = True
+        else:
+            previous_state = order.estado.nombre
+            next_state_name = (
+                "Pendiente de preparación" if outcome == "approved" else "Pago rechazado"
+            )
+            if (
+                order.referencia_pago == reference
+                and order.estado.nombre == next_state_name
+            ):
+                duplicate = True
+            else:
+                next_state, _ = EstadoPedido.objects.get_or_create(
+                    nombre=next_state_name,
+                )
+                order.estado = next_state
+                order.referencia_pago = str(reference)
+                order.save(update_fields=["estado", "referencia_pago"])
+                history = HistorialEstadoPedido.objects.create(
+                    pedido=order,
+                    estado=next_state,
+                    cambiado_por=order.usuario,
+                    notas_cambio=(
+                        "Pago aprobado por el simulador."
+                        if outcome == "approved"
+                        else "Pago rechazado por el simulador."
+                    ),
+                )
+                notification_history_id = history.historial_id
+
+    if expired:
+        notification_status = _notify_order_status_changed(
+            order,
+            previous_state,
+            notification_history_id,
         )
+        return Response(
+            {
+                "detail": (
+                    "El plazo de pago de cinco minutos venció y el pedido fue "
+                    "rechazado."
+                ),
+                "notificacion": notification_status,
+            },
+            status=status.HTTP_409_CONFLICT,
+        )
+
+    if outcome == "approved":
+        notification_status = _notify_payment_approved(order)
+    elif not duplicate:
+        notification_status = _notify_order_status_changed(
+            order,
+            previous_state,
+            notification_history_id,
+        )
+    else:
+        notification_status = None
 
     return Response(
         {
             "pedido_id": order.pedido_id,
-            "estado": next_state_name,
+            "estado": order.estado.nombre,
             "payment_reference": str(reference),
+            "duplicate": duplicate,
+            "notificacion": notification_status,
         }
     )
 

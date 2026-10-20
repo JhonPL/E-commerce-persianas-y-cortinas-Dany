@@ -77,6 +77,7 @@ class DetallePedido(models.Model):
         related_name="detalles",
     )
     producto = models.PositiveIntegerField(db_column="producto_id")
+    producto_nombre = models.CharField(max_length=150, blank=True)
     cantidad = models.IntegerField(default=1)
     ancho_cm = models.DecimalField(max_digits=8, decimal_places=2)
     alto_cm = models.DecimalField(max_digits=8, decimal_places=2)

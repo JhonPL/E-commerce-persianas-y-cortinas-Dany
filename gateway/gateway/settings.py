@@ -60,9 +60,17 @@ ORDERS_SERVICE_URL = env(
     "ORDERS_SERVICE_URL",
     default="http://127.0.0.1:8003",
 ).rstrip("/")
+ORDERS_SERVICE_TIMEOUT_SECONDS = env.int(
+    "ORDERS_SERVICE_TIMEOUT_SECONDS",
+    default=30,
+)
 PAYMENTS_SERVICE_URL = env(
     "PAYMENTS_SERVICE_URL",
     default="http://127.0.0.1:8007/api/v1/payments",
+).rstrip("/")
+NOTIFICATIONS_SERVICE_URL = env(
+    "NOTIFICATIONS_SERVICE_URL",
+    default="http://127.0.0.1:8005",
 ).rstrip("/")
 INTERNAL_SERVICE_TOKEN = env("INTERNAL_SERVICE_TOKEN", default="")
 SERVICE_TIMEOUT_SECONDS = env.int("SERVICE_TIMEOUT_SECONDS", default=5)

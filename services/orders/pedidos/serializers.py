@@ -28,6 +28,8 @@ class DetalleItemSerializer(serializers.ModelSerializer):
         return self._get_product(obj.producto)["imagen_principal"]
 
     def get_nombre(self, obj):
+        if obj.producto_nombre:
+            return obj.producto_nombre
         return self._get_product(obj.producto)["nombre"]
 
     def _get_product(self, product_id):

@@ -52,7 +52,7 @@ def notificar_admin(pedido):
             destinatario=getattr(
                 settings,
                 "ADMIN_EMAIL",
-                "admin@tutienda.com",
+                "jhon.paternina302@gmail.com",
             ),
             estado=NotificacionAdmin.FALLIDO,
             error_detalle=str(exc),

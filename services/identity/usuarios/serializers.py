@@ -2,7 +2,7 @@ from django.contrib.auth import authenticate
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import Cliente, Usuario
+from .models import Cliente, Rol, Usuario
 
 
 class RegistroSerializer(serializers.ModelSerializer):
@@ -122,3 +122,7 @@ class AdminUsuarioSerializer(serializers.ModelSerializer):
 
 class UsuarioActivoSerializer(serializers.Serializer):
     activo = serializers.BooleanField()
+
+
+class AdminUsuarioRolSerializer(serializers.Serializer):
+    rol = serializers.ChoiceField(choices=[Rol.ADMIN, Rol.CLIENTE])

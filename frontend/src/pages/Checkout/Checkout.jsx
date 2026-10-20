@@ -37,6 +37,7 @@ export default function Checkout() {
   const [order, setOrder] = useState(null)
   const [payment, setPayment] = useState(null)
   const [error, setError] = useState('')
+  const [notificationWarning, setNotificationWarning] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   const updateAddress = (event) => {
@@ -62,6 +63,11 @@ export default function Checkout() {
         })
         currentOrder = await readResponse(response)
         setOrder(currentOrder)
+        setNotificationWarning(
+          currentOrder.notificacion === 'enviado'
+            ? ''
+            : 'El pedido se registró, pero no fue posible confirmar el envío de todos los correos.',
+        )
       }
 
       const response = await fetch(`${API_URL}/payments/simulate/`, {
@@ -102,6 +108,7 @@ export default function Checkout() {
           <p className={styles.notice}>
             No se realizó ningún cobro ni se procesaron datos de tarjeta.
           </p>
+          {notificationWarning && <p className={styles.notice} role="alert">{notificationWarning}</p>}
           <Link className={styles.primaryButton} to="/mis-pedidos">
             Ver mis pedidos
           </Link>
@@ -131,6 +138,7 @@ export default function Checkout() {
           <p className={styles.eyebrow}>Pedido #{payment.pedido_id}</p>
           <h2>Pago rechazado (simulado)</h2>
           <p>No se hizo ningún cobro. Puedes probar nuevamente con otro resultado.</p>
+          {notificationWarning && <p className={styles.notice} role="alert">{notificationWarning}</p>}
           <button
             className={styles.secondaryButton}
             type="button"
