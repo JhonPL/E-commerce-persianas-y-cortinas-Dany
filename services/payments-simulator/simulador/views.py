@@ -44,7 +44,7 @@ def _orders_request(method, url, **kwargs):
             method,
             url,
             headers=headers,
-            timeout=settings.SERVICE_TIMEOUT_SECONDS,
+            timeout=settings.ORDERS_SERVICE_TIMEOUT_SECONDS,
             **kwargs,
         )
     except requests.RequestException as exc:
@@ -164,6 +164,7 @@ class SimulatePaymentView(APIView):
             return Response(result_response.json(), status=status.HTTP_409_CONFLICT)
         if result_response.status_code != 200:
             raise OrdersServiceUnavailable()
+        order_result = result_response.json()
 
         return Response(
             {
@@ -173,6 +174,7 @@ class SimulatePaymentView(APIView):
                 "amount": str(attempt.amount),
                 "simulated": True,
                 "duplicate": not created,
+                "notification": order_result.get("notificacion"),
             },
             status=status.HTTP_200_OK,
         )

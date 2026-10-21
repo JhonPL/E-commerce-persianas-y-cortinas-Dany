@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertCircle, CheckCircle2, CreditCard, ShieldCheck } from 'lucide-react'
+import { AlertCircle, CheckCircle2, CreditCard, LoaderCircle, ShieldCheck } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useCart } from '../../context/CartContext'
 import { API_URL } from '../../config/api'
@@ -22,6 +22,13 @@ const addressFieldLabels = {
   calle: 'Dirección completa',
   numero: 'Número',
 }
+
+const demoCards = {
+  approved: '4242424242424242',
+  declined: '4000000000000002',
+}
+
+const emptyCard = { holder: '', number: '', expiry: '', cvc: '' }
 
 const formatCOP = (value) =>
   new Intl.NumberFormat('es-CO', {
@@ -54,7 +61,7 @@ export default function Checkout() {
     barrio: '',
     calle: '',
   })
-  const [outcome, setOutcome] = useState('approved')
+  const [card, setCard] = useState(emptyCard)
   const [order, setOrder] = useState(null)
   const [payment, setPayment] = useState(null)
   const [error, setError] = useState('')
@@ -69,12 +76,41 @@ export default function Checkout() {
     }))
   }
 
+  const updateCard = (event) => {
+    const { name, value } = event.target
+    let nextValue = value
+    if (name === 'number') {
+      nextValue = value.replace(/\D/g, '').slice(0, 16).replace(/(.{4})/g, '$1 ').trim()
+    } else if (name === 'expiry') {
+      const digits = value.replace(/\D/g, '').slice(0, 4)
+      nextValue = digits.length > 2 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : digits
+    } else if (name === 'cvc') {
+      nextValue = value.replace(/\D/g, '').slice(0, 3)
+    }
+    setCard((current) => ({ ...current, [name]: nextValue }))
+  }
+
   const handleSubmit = async (event) => {
     event.preventDefault()
     setError('')
     setSubmitting(true)
 
     try {
+      const cardNumber = card.number.replace(/\D/g, '')
+      const outcome = Object.entries(demoCards).find(([, number]) => number === cardNumber)?.[0]
+      if (!outcome) {
+        throw new Error('Usa uno de los números de tarjeta de prueba indicados en pantalla.')
+      }
+      const [month, year] = card.expiry.split('/').map(Number)
+      const expiration = new Date(2000 + year, month)
+      const currentMonth = new Date()
+      currentMonth.setDate(1)
+      currentMonth.setHours(0, 0, 0, 0)
+      if (!month || month > 12 || expiration <= currentMonth) {
+        throw new Error('La fecha de vencimiento de prueba no es válida.')
+      }
+      setCard(emptyCard)
+
       let currentOrder = order
       if (!currentOrder) {
         const response = await authenticatedFetch(`${API_URL}/pedidos/checkout/`, {
@@ -86,6 +122,7 @@ export default function Checkout() {
         setOrder(currentOrder)
       }
 
+      await new Promise((resolve) => window.setTimeout(resolve, 2000))
       const response = await authenticatedFetch(`${API_URL}/payments/simulate/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -113,13 +150,18 @@ export default function Checkout() {
         <section className={styles.resultCard} role="status">
           <CheckCircle2 className={styles.successIcon} size={44} />
           <p className={styles.eyebrow}>Simulación completada</p>
-          <h1>Pago aprobado (simulado)</h1>
+          <h1>¡Pago completado con éxito!</h1>
           <p>
             El pedido <strong>#{payment.pedido_id}</strong> quedó registrado por{' '}
             <strong>{formatCOP(Number(payment.amount))}</strong>.
           </p>
           <p className={styles.notice}>
             No se realizó ningún cobro ni se procesaron datos de tarjeta.
+          </p>
+          <p className={styles.notice}>
+            {payment.notification === 'enviado'
+              ? 'El comprobante PDF de demostración fue enviado al correo de tu cuenta.'
+              : 'El pago quedó aprobado, pero no se pudo confirmar el envío del comprobante. Contacta al negocio.'}
           </p>
           <Link className={styles.primaryButton} to="/mis-pedidos">
             Ver mis pedidos
@@ -134,7 +176,7 @@ export default function Checkout() {
       <div className={styles.heading}>
         <p className={styles.eyebrow}>Finalizar compra</p>
         <h1>Entrega y pago de prueba</h1>
-        <p>Completa la dirección y elige el resultado del simulador.</p>
+        <p>Confirma la entrega y paga con una tarjeta ficticia de demostración.</p>
       </div>
 
       {items.length === 0 && !order ? (
@@ -242,48 +284,98 @@ export default function Checkout() {
             </section>
 
             <section className={styles.panel}>
-              <h2><CreditCard size={19} /> Simulador de pago</h2>
+              <h2><CreditCard size={19} /> Pago con tarjeta de prueba</h2>
               <p className={styles.notice}>
-                Demostración sin pasarela real. No ingreses información de tarjetas.
+                Simulación académica: usa únicamente los datos ficticios indicados aquí.
+                Ningún dato de tarjeta se envía ni se almacena.
               </p>
-              <label className={styles.choice}>
-                <input
-                  type="radio"
-                  name="outcome"
-                  value="approved"
-                  checked={outcome === 'approved'}
-                  onChange={(event) => setOutcome(event.target.value)}
-                />
-                <span>
-                  <strong>Aprobar pago de prueba</strong>
-                  <small>Continúa el pedido como si hubiera sido aprobado.</small>
-                </span>
-              </label>
-              <label className={styles.choice}>
-                <input
-                  type="radio"
-                  name="outcome"
-                  value="declined"
-                  checked={outcome === 'declined'}
-                  onChange={(event) => setOutcome(event.target.value)}
-                />
-                <span>
-                  <strong>Rechazar pago de prueba</strong>
-                  <small>Prueba el flujo de rechazo, sin crear un cobro.</small>
-                </span>
-              </label>
+              <div className={styles.cardPreview} aria-hidden="true">
+                <div className={styles.cardPreviewTop}>
+                  <span>PERSIANAS &amp; CORTINAS DANY</span>
+                  <CreditCard size={24} />
+                </div>
+                <strong>{card.number || '•••• •••• •••• ••••'}</strong>
+                <div className={styles.cardPreviewFooter}>
+                  <span>{card.holder || 'NOMBRE DEL TITULAR'}</span>
+                  <span>{card.expiry || 'MM/AA'}</span>
+                </div>
+              </div>
+              <div className={styles.fields}>
+                <label className={`${styles.field} ${styles.fullWidth}`}>
+                  <span>Nombre del titular</span>
+                  <input
+                    name="holder"
+                    value={card.holder}
+                    onChange={updateCard}
+                    autoComplete="off"
+                    maxLength={80}
+                    required
+                    disabled={submitting}
+                  />
+                </label>
+                <label className={`${styles.field} ${styles.fullWidth}`}>
+                  <span>Número de tarjeta de prueba</span>
+                  <input
+                    name="number"
+                    value={card.number}
+                    onChange={updateCard}
+                    inputMode="numeric"
+                    autoComplete="off"
+                    placeholder="4242 4242 4242 4242"
+                    maxLength={19}
+                    required
+                    disabled={submitting}
+                  />
+                </label>
+                <label className={styles.field}>
+                  <span>Vencimiento</span>
+                  <input
+                    name="expiry"
+                    value={card.expiry}
+                    onChange={updateCard}
+                    inputMode="numeric"
+                    autoComplete="off"
+                    placeholder="MM/AA"
+                    pattern="[0-9]{2}/[0-9]{2}"
+                    title="Usa el formato MM/AA"
+                    maxLength={5}
+                    required
+                    disabled={submitting}
+                  />
+                </label>
+                <label className={styles.field}>
+                  <span>Código de seguridad</span>
+                  <input
+                    name="cvc"
+                    value={card.cvc}
+                    onChange={updateCard}
+                    inputMode="numeric"
+                    autoComplete="off"
+                    placeholder="123"
+                    pattern="[0-9]{3}"
+                    maxLength={3}
+                    required
+                    disabled={submitting}
+                  />
+                </label>
+              </div>
+              <div className={styles.demoCards}>
+                <p><strong>Aprobación:</strong> 4242 4242 4242 4242</p>
+                <p><strong>Rechazo:</strong> 4000 0000 0000 0002</p>
+                <p>Usa cualquier vencimiento futuro y un código ficticio de 3 dígitos.</p>
+              </div>
               <p className={styles.securityNote}>
-                <ShieldCheck size={16} /> No se guardan datos de pago reales.
+                <ShieldCheck size={16} /> Solo se envía al servidor el resultado simulado.
               </p>
             </section>
 
             {error && <p className={styles.errorMessage} role="alert">{error}</p>}
             <button className={styles.primaryButton} type="submit" disabled={submitting}>
               {submitting
-                ? 'Procesando simulación…'
+                ? <><LoaderCircle className={styles.processingIcon} size={18} /> Procesando pago…</>
                 : order
-                  ? 'Reintentar simulación'
-                  : 'Crear pedido y simular pago'}
+                  ? 'Reintentar pago de prueba'
+                  : 'Pagar ahora'}
             </button>
           </form>
 

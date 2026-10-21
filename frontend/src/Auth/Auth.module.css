@@ -534,3 +534,23 @@
   transition: background 0.25s, transform 0.2s;
 }
 .modalBtn:hover { background: #cfe795; transform: translateY(-1px); }
+
+.logoTop { font-size: 0.68rem; }
+.tab { font-size: 0.9rem; color: #b8b2a2; letter-spacing: 0; }
+.formSub,
+.switchText,
+.modalSub { color: #c4bdad; font-size: 1rem; }
+.dividerText { color: #b8b2a2; font-size: 0.88rem; }
+.label { font-size: 0.9rem; letter-spacing: 0; }
+.inputIcon,
+.eyeBtn { color: #b8b2a2; }
+.input::placeholder { color: #aaa394; opacity: 1; }
+.fieldError { color: #ff8b80; font-size: 0.85rem; letter-spacing: 0; }
+.strengthItem { font-size: 0.8rem; letter-spacing: 0; }
+.strengthNo { color: #b8b2a2; }
+.checkLabel { color: #c4bdad; font-size: 0.9rem; }
+.submitBtn,
+.modalBtn { font-size: 0.92rem; letter-spacing: 0; }
+.decorEyebrow { font-size: 0.82rem; letter-spacing: 0.12em; }
+.decorSub { color: #d2cdbc; font-size: 1rem; }
+.decorCard { font-size: 0.95rem; }

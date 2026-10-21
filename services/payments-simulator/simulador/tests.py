@@ -14,6 +14,7 @@ from .views import SimulatePaymentView
     INTERNAL_SERVICE_TOKEN="test-internal-token",
     PAYMENT_SIMULATOR_ENABLED=True,
     ORDERS_SERVICE_URL="http://orders.test",
+    ORDERS_SERVICE_TIMEOUT_SECONDS=45,
 )
 class PaymentSimulationTests(APITestCase):
     def setUp(self):
@@ -37,7 +38,13 @@ class PaymentSimulationTests(APITestCase):
                 "estado": "Pendiente de pago",
             },
         )
-        result = Mock(status_code=200, json=lambda: {"estado": "Pendiente de preparación"})
+        result = Mock(
+            status_code=200,
+            json=lambda: {
+                "estado": "Pendiente de preparación",
+                "notificacion": "enviado",
+            },
+        )
         request.side_effect = [context, result]
         api_request = self.factory.post(
             "/api/v1/payments/simulate/",
@@ -56,11 +63,19 @@ class PaymentSimulationTests(APITestCase):
         self.assertTrue(response.data["simulated"])
         self.assertEqual(response.data["outcome"], "approved")
         self.assertEqual(response.data["amount"], "119000.00")
+        self.assertEqual(response.data["notification"], "enviado")
         self.assertEqual(request.call_count, 2)
+        self.assertTrue(
+            all(call.kwargs["timeout"] == 45 for call in request.call_args_list)
+        )
         self.assertEqual(PaymentAttempt.objects.count(), 1)
         self.assertEqual(
             request.call_args_list[1].kwargs["json"]["amount"],
             "119000.00",
+        )
+        self.assertEqual(
+            set(request.call_args_list[1].kwargs["json"]),
+            {"outcome", "payment_reference", "amount"},
         )
 
     @patch("simulador.views.requests.request")

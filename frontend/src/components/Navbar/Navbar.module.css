@@ -33,8 +33,8 @@
 }
 .logoText { display: flex; flex-direction: column; line-height: 1.1; }
 .logoTop {
-  font-size: 0.55rem; font-weight: 300;
-  letter-spacing: 0.18em; text-transform: uppercase;
+  font-size: 0.68rem; font-weight: 400;
+  letter-spacing: 0; text-transform: uppercase;
   color: #8fc263;
 }
 .logoBottom {
@@ -45,9 +45,9 @@
 /* ── Nav ────────────────────────────────────────────────────────── */
 .nav { display: flex; align-items: center; gap: 40px; }
 .link {
-  font-size: 0.8rem; font-weight: 400;
-  letter-spacing: 0.12em; text-transform: uppercase;
-  color: #a0a09a; text-decoration: none;
+  font-size: 0.92rem; font-weight: 400;
+  letter-spacing: 0; text-transform: uppercase;
+  color: #d0c9b8; text-decoration: none;
   transition: color 0.3s ease;
   position: relative; padding-bottom: 2px;
 }
@@ -65,16 +65,16 @@
 .actions { display: flex; align-items: center; gap: 16px; }
 .iconBtn {
   display: flex; align-items: center; gap: 6px;
-  color: #a0a09a; background: none; border: none;
+  color: #d0c9b8; background: none; border: none;
   cursor: pointer; transition: color 0.3s ease;
   position: relative; padding: 4px; text-decoration: none;
 }
 .iconBtn:hover { color: #f7efd3; }
-.iconLabel { font-size: 0.78rem; letter-spacing: 0.08em; color: inherit; }
+.iconLabel { font-size: 0.9rem; letter-spacing: 0; color: inherit; }
 .badge {
   position: absolute; top: -4px; right: -6px;
   background: #8fc263; color: #000000;
-  font-size: 0.6rem; font-weight: 700;
+  font-size: 0.75rem; font-weight: 700;
   width: 16px; height: 16px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
 }
@@ -93,11 +93,11 @@
 .searchInput {
   width: 100%; max-width: 480px;
   background: #111; border: 1px solid rgba(143, 194, 99, 0.2);
-  color: #f7efd3; font-size: 0.95rem;
+  color: #f7efd3; font-size: 1rem;
   padding: 8px 16px; border-radius: 6px;
   outline: none; transition: border-color 0.3s ease;
 }
-.searchInput::placeholder { color: #444; }
+.searchInput::placeholder { color: #b8b2a2; opacity: 1; }
 .searchInput:focus { border-color: #8fc263; }
 
 /* ── Hamburger ──────────────────────────────────────────────────── */
@@ -131,7 +131,7 @@
   background: none;
   border: none;
   cursor: pointer;
-  color: #a0a09a;
+  color: #d0c9b8;
   padding: 4px;
   transition: color 0.3s;
 }
@@ -183,13 +183,13 @@
   gap: 2px;
 }
 .userDropdownName {
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   font-weight: 500;
   color: #f7efd3;
 }
 .userDropdownEmail {
-  font-size: 0.72rem;
-  color: #666;
+  font-size: 0.85rem;
+  color: #b8b2a2;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -206,8 +206,8 @@
   gap: 8px;
   width: 100%;
   padding: 10px 16px;
-  font-size: 0.8rem;
-  color: #aaa;
+  font-size: 0.92rem;
+  color: #d0c9b8;
   background: none;
   border: none;
   cursor: pointer;
@@ -220,5 +220,5 @@
   color: #f7efd3;
 }
 
-.userDropdownLogout { color: #888; }
+.userDropdownLogout { color: #b8b2a2; }
 .userDropdownLogout:hover { color: #e74c3c !important; background: rgba(231,76,60,0.06) !important; }

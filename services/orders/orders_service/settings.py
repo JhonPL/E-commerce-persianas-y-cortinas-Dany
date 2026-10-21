@@ -78,5 +78,9 @@ NOTIFICATIONS_SERVICE_URL = env(
     "NOTIFICATIONS_SERVICE_URL",
     default="http://127.0.0.1:8005",
 ).rstrip("/")
+BILLING_SERVICE_URL = env(
+    "BILLING_SERVICE_URL",
+    default="http://127.0.0.1:8006",
+).rstrip("/")
 SERVICE_TIMEOUT_SECONDS = env.int("SERVICE_TIMEOUT_SECONDS", default=5)
 INTERNAL_SERVICE_TOKEN = env("INTERNAL_SERVICE_TOKEN", default="")

@@ -1,3 +1,5 @@
+import logging
+
 import requests
 from django.conf import settings
 from django.http import HttpResponse, JsonResponse
@@ -6,11 +8,15 @@ from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
 
+logger = logging.getLogger(__name__)
+
+
 @method_decorator(csrf_exempt, name="dispatch")
 class ServiceProxy(View):
     service_url_setting = ""
     service_label = ""
     timeout_setting = "SERVICE_TIMEOUT_SECONDS"
+    max_attempts = 1
 
     def dispatch(self, request, *args, **kwargs):
         prefixes = kwargs.pop("prefixes", ())
@@ -38,21 +44,31 @@ class ServiceProxy(View):
             for key in request.GET
             for value in request.GET.getlist(key)
         ]
-        try:
-            upstream = requests.request(
-                request.method,
-                endpoint,
-                params=params,
-                data=request.body if request.method not in ("GET", "HEAD") else None,
-                headers=headers,
-                timeout=getattr(settings, self.timeout_setting),
-                allow_redirects=False,
-            )
-        except requests.RequestException:
-            return JsonResponse(
-                {"detail": f"El servicio de {self.service_label} no está disponible."},
-                status=503,
-            )
+
+        upstream = None
+        for attempt in range(self.max_attempts):
+            try:
+                upstream = requests.request(
+                    request.method,
+                    endpoint,
+                    params=params,
+                    data=request.body if request.method not in ("GET", "HEAD") else None,
+                    headers=headers,
+                    timeout=getattr(settings, self.timeout_setting),
+                    allow_redirects=False,
+                )
+                break
+            except requests.RequestException:
+                if attempt + 1 == self.max_attempts:
+                    logger.exception(
+                        "Gateway request to %s failed after %s attempt(s).",
+                        self.service_label,
+                        self.max_attempts,
+                    )
+                    return JsonResponse(
+                        {"detail": f"El servicio de {self.service_label} no está disponible."},
+                        status=503,
+                    )
 
         response = HttpResponse(
             upstream.content,
@@ -89,3 +105,5 @@ class OrdersServiceProxy(ServiceProxy):
 class PaymentsServiceProxy(ServiceProxy):
     service_url_setting = "PAYMENTS_SERVICE_URL"
     service_label = "simulación de pagos"
+    timeout_setting = "PAYMENTS_SERVICE_TIMEOUT_SECONDS"
+    max_attempts = 2

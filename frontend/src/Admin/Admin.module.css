@@ -14,8 +14,8 @@
   --admin-green: #8fc263;
   --admin-green-light: #cfe795;
   --admin-text: #f7efd3;
-  --admin-muted: #888;
-  --admin-dim: #444;
+  --admin-muted: #c4bdad;
+  --admin-dim: #a49e90;
 }
 
 /* ── Shell ──────────────────────────────────────────────── */
@@ -73,8 +73,8 @@
   white-space: nowrap;
 }
 .sidebarLogoSub {
-  font-size: 0.58rem;
-  letter-spacing: 0.15em;
+  font-size: 0.72rem;
+  letter-spacing: 0;
   text-transform: uppercase;
   color: var(--admin-muted);
 }
@@ -109,7 +109,7 @@
   border-radius: 7px;
   color: var(--admin-muted);
   text-decoration: none;
-  font-size: 0.82rem;
+  font-size: 0.92rem;
   font-weight: 400;
   letter-spacing: 0.04em;
   transition: background 0.2s, color 0.2s;
@@ -137,7 +137,7 @@
   border: 1px solid var(--admin-border);
   border-radius: 6px;
   padding: 5px 10px;
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   color: var(--admin-text);
   white-space: nowrap;
   pointer-events: none;
@@ -173,12 +173,12 @@
 }
 .sidebarUserInfo { display: flex; flex-direction: column; overflow: hidden; }
 .sidebarUserName { font-size: 0.8rem; font-weight: 500; color: var(--admin-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sidebarUserRole { font-size: 0.65rem; color: var(--admin-green); letter-spacing: 0.08em; text-transform: uppercase; }
+.sidebarUserRole { font-size: 0.75rem; color: var(--admin-green-light); letter-spacing: 0; text-transform: uppercase; }
 .logoutBtn {
   display: flex; align-items: center; gap: 8px;
   width: 100%; padding: 8px 12px; border-radius: 7px;
   color: var(--admin-muted); background: none; border: none;
-  font-size: 0.78rem; cursor: pointer;
+  font-size: 0.9rem; cursor: pointer;
   transition: background 0.2s, color 0.2s;
   white-space: nowrap;
 }
@@ -234,7 +234,7 @@
   font-size: 0.72rem; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
 }
-.topbarUserName { font-size: 0.8rem; color: var(--admin-muted); }
+.topbarUserName { font-size: 0.9rem; color: var(--admin-muted); }
 
 /* Content */
 .content { flex: 1; padding: 28px; overflow-x: hidden; }
@@ -250,4 +250,30 @@
   .main { margin-left: 0 !important; }
   .mainExpanded { margin-left: 0 !important; }
   .mobileMenuBtn { display: flex; }
+}
+
+.shell :global(input),
+.shell :global(select),
+.shell :global(textarea) {
+  font-size: 0.95rem;
+}
+
+.shell :global(button) {
+  font-size: max(0.9rem, 1em);
+}
+
+.shell :global(input::placeholder),
+.shell :global(textarea::placeholder) {
+  color: #b8b2a2;
+  opacity: 1;
+}
+
+.shell :global(table) {
+  font-size: 0.92rem;
+}
+
+.shell :global(th) {
+  color: #c4bdad !important;
+  font-size: 0.82rem !important;
+  letter-spacing: 0 !important;
 }

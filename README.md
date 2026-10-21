@@ -63,8 +63,9 @@ cinco minutos, el gateway y el frontend:
 .\run-local.ps1
 ```
 
+automáticamente al arrancar.
 Abre `http://localhost:5173`. Mantén abiertas las ventanas de terminales que
-inició el script. La migración del campo de nombre de producto se aplica
+inició el script. Las migraciones de pedidos y facturación se aplican
 automáticamente al arrancar.
 
 ## Pruebas

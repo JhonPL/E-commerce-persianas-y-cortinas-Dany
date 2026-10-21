@@ -1,3 +1,5 @@
+import base64
+import binascii
 from decimal import Decimal
 
 from rest_framework import serializers
@@ -40,6 +42,19 @@ class PedidoApprovedSerializer(serializers.Serializer):
         min_value=Decimal("0.00"),
     )
     detalles = PedidoDetalleNotificationSerializer(many=True, allow_empty=False)
+    numero_factura = serializers.CharField(max_length=50)
+    pdf_base64 = serializers.CharField(max_length=2_000_000, write_only=True)
+
+    def validate_pdf_base64(self, value):
+        try:
+            pdf = base64.b64decode(value, validate=True)
+        except (binascii.Error, ValueError) as exc:
+            raise serializers.ValidationError(
+                "El adjunto no tiene una codificación válida."
+            ) from exc
+        if not pdf.startswith(b"%PDF-"):
+            raise serializers.ValidationError("El adjunto no es un PDF válido.")
+        return value
 
 
 class PedidoStatusChangedSerializer(serializers.Serializer):

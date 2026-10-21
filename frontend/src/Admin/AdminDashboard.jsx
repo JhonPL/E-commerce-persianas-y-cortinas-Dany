@@ -145,7 +145,7 @@ export default function AdminDashboard() {
                 <span className={styles.metricValue}>{renderMetricValue(m.key, metric.value)}</span>
                 <span className={styles.metricLabel}>{metric.label}</span>
               </div>
-              <span className={styles.metricDelta} style={{ color: String(metric.delta || '').startsWith('+') ? '#8fc263' : '#888' }}>
+              <span className={styles.metricDelta} style={{ color: String(metric.delta || '').startsWith('+') ? '#8fc263' : '#c4bdad' }}>
                 {metric.delta}
               </span>
             </div>
@@ -170,11 +170,11 @@ export default function AdminDashboard() {
                   <stop offset="95%" stopColor="#8fc263" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-              <XAxis dataKey="mes" tick={{ fill: '#666', fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis tickFormatter={fmtY} tick={{ fill: '#666', fontSize: 11 }} axisLine={false} tickLine={false} width={52} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+              <XAxis dataKey="mes" tick={{ fill: '#c4bdad', fontSize: 13, fontFamily: 'DM Sans' }} axisLine={false} tickLine={false} />
+              <YAxis tickFormatter={fmtY} tick={{ fill: '#c4bdad', fontSize: 13, fontFamily: 'DM Sans' }} axisLine={false} tickLine={false} width={58} />
               <Tooltip
-                contentStyle={{ background: '#111', border: '1px solid rgba(143,194,99,0.2)', borderRadius: 7, fontSize: 12 }}
+                contentStyle={{ background: '#111', border: '1px solid rgba(143,194,99,0.35)', borderRadius: 7, fontSize: 14, fontFamily: 'DM Sans' }}
                 labelStyle={{ color: '#f7efd3' }}
                 formatter={(v) => [formatCop.format(v), 'Ventas']}
               />

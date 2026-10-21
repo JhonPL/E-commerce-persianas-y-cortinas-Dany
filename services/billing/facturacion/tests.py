@@ -119,3 +119,65 @@ class InvoiceTransferTests(APITestCase):
                 "La base de facturación no está vacía; se canceló la importación.",
             ):
                 call_command("import_invoices", source)
+
+
+@override_settings(INTERNAL_SERVICE_TOKEN="internal-test-token")
+class DemoInvoicePdfTests(APITestCase):
+    def setUp(self):
+        self.payload = {
+            "pedido_id": 81,
+            "cliente_nombre": "Cliente de prueba",
+            "cliente_email": "cliente@example.test",
+            "direccion": "Calle 10, Villavicencio",
+            "total": "125000.00",
+            "detalles": [
+                {
+                    "producto_id": 12,
+                    "producto_nombre": "Cortina Blackout",
+                    "cantidad": 1,
+                    "ancho_cm": "100.00",
+                    "alto_cm": "200.00",
+                    "precio_total": "125000.00",
+                }
+            ],
+        }
+
+    def _post(self, payload=None, **headers):
+        return self.client.post(
+            "/api/internal/facturas/demo-pdf/",
+            payload or self.payload,
+            format="json",
+            **headers,
+        )
+
+    def test_generates_and_records_a_demo_pdf_once_per_order(self):
+        headers = {"HTTP_X_INTERNAL_SERVICE_TOKEN": "internal-test-token"}
+        first = self._post(**headers)
+        second = self._post(**headers)
+
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+        self.assertEqual(first["Content-Type"], "application/pdf")
+        self.assertEqual(first["X-Invoice-Number"], "DEMO-000081")
+        self.assertTrue(first.content.startswith(b"%PDF-"))
+        self.assertEqual(second.status_code, status.HTTP_200_OK)
+        self.assertEqual(Factura.objects.count(), 1)
+        invoice = Factura.objects.get(pedido_id=81)
+        self.assertIsNone(invoice.cufe)
+        self.assertFalse(invoice.enviada_dian)
+        self.assertIn(b"SIN COBRO REAL", first.content)
+
+    def test_rejects_invoice_when_item_total_does_not_match(self):
+        payload = {**self.payload, "total": "126000.00"}
+        response = self._post(
+            payload,
+            HTTP_X_INTERNAL_SERVICE_TOKEN="internal-test-token",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(Factura.objects.exists())
+
+    def test_pdf_generation_requires_internal_service_token(self):
+        response = self._post()
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertFalse(Factura.objects.exists())

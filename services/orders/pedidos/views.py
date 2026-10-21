@@ -1,3 +1,4 @@
+import base64
 import logging
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
@@ -139,7 +140,84 @@ def _calculate_checkout_items(items):
     return prepared, total.quantize(Decimal("0.01"))
 
 
+def _approved_order_payload(order):
+    return {
+        "pedido_id": order.pedido_id,
+        "cliente_nombre": order.cliente_nombre,
+        "cliente_email": order.cliente_email,
+        "nombre_recibe": order.direccion.nombre_recibe,
+        "direccion": ", ".join(
+            part
+            for part in (
+                order.direccion.calle,
+                order.direccion.barrio,
+                order.direccion.ciudad.nombre,
+                order.direccion.ciudad.departamento.nombre,
+            )
+            if part
+        ),
+        "total": str(order.total),
+        "detalles": [
+            {
+                "producto_id": item.producto,
+                "producto_nombre": item.producto_nombre,
+                "cantidad": item.cantidad,
+                "ancho_cm": str(item.ancho_cm),
+                "alto_cm": str(item.alto_cm),
+                "precio_total": str(item.precio_total),
+            }
+            for item in order.detalles.all()
+        ],
+    }
+
+
+def _generate_demo_invoice(order):
+    token = settings.INTERNAL_SERVICE_TOKEN
+    if not token:
+        logger.error(
+            "Order %s was paid but its billing token is not configured.",
+            order.pedido_id,
+        )
+        return None
+
+    try:
+        response = requests.post(
+            (
+                f"{settings.BILLING_SERVICE_URL}"
+                "/api/internal/facturas/demo-pdf/"
+            ),
+            json=_approved_order_payload(order),
+            headers={"X-Internal-Service-Token": token},
+            timeout=settings.SERVICE_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        if (
+            response.headers.get("Content-Type", "").split(";")[0]
+            != "application/pdf"
+            or not response.content.startswith(b"%PDF-")
+        ):
+            raise ValueError("Billing devolvió un comprobante PDF inválido.")
+    except (requests.RequestException, ValueError):
+        logger.exception(
+            "Order %s was paid but its demo invoice could not be generated.",
+            order.pedido_id,
+        )
+        return None
+
+    return {
+        "numero_factura": response.headers.get(
+            "X-Invoice-Number",
+            f"DEMO-{order.pedido_id:06d}",
+        ),
+        "pdf_base64": base64.b64encode(response.content).decode("ascii"),
+    }
+
+
 def _notify_payment_approved(order):
+    invoice = _generate_demo_invoice(order)
+    if not invoice:
+        return "fallido"
+
     token = settings.INTERNAL_SERVICE_TOKEN
     if not token:
         logger.error(
@@ -148,40 +226,15 @@ def _notify_payment_approved(order):
         )
         return "fallido"
 
+    payload = _approved_order_payload(order)
+    payload.update(invoice)
     try:
         response = requests.post(
             (
                 f"{settings.NOTIFICATIONS_SERVICE_URL}"
                 "/api/internal/notificaciones/pedidos/"
             ),
-            json={
-                "pedido_id": order.pedido_id,
-                "cliente_nombre": order.cliente_nombre,
-                "cliente_email": order.cliente_email,
-                "nombre_recibe": order.direccion.nombre_recibe,
-                "direccion": ", ".join(
-                    part
-                    for part in (
-                        order.direccion.calle,
-                        order.direccion.barrio,
-                        order.direccion.ciudad.nombre,
-                        order.direccion.ciudad.departamento.nombre,
-                    )
-                    if part
-                ),
-                "total": str(order.total),
-                "detalles": [
-                    {
-                        "producto_id": item.producto,
-                        "producto_nombre": item.producto_nombre,
-                        "cantidad": item.cantidad,
-                        "ancho_cm": str(item.ancho_cm),
-                        "alto_cm": str(item.alto_cm),
-                        "precio_total": str(item.precio_total),
-                    }
-                    for item in order.detalles.all()
-                ],
-            },
+            json=payload,
             headers={"X-Internal-Service-Token": token},
             timeout=settings.SERVICE_TIMEOUT_SECONDS,
         )

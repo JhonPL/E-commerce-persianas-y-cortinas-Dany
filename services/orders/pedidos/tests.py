@@ -29,6 +29,7 @@ from .models import (
     AUTH_SERVICE_URL="http://identity.test/api/v1/auth/me/",
     CATALOGO_SERVICE_INTERNAL_URL="http://catalog.test/api/internal/catalogo",
     NOTIFICATIONS_SERVICE_URL="http://notifications.test",
+    BILLING_SERVICE_URL="http://billing.test",
 )
 class OrdersServiceTests(APITestCase):
     def setUp(self):
@@ -636,6 +637,27 @@ class InternalPaymentResultTests(APITestCase):
         self.addCleanup(notification_patcher.stop)
 
     def test_internal_payment_result_updates_order_state(self):
+        pdf_response = Mock(
+            status_code=200,
+            headers={
+                "Content-Type": "application/pdf",
+                "X-Invoice-Number": "DEMO-000001",
+            },
+            content=b"%PDF-demo",
+            raise_for_status=Mock(),
+        )
+        notification_response = Mock(
+            status_code=200,
+            raise_for_status=Mock(),
+            json=lambda: {
+                "pedido_id": self.order.pedido_id,
+                "admin_estado": "enviado",
+                "cliente_estado": "enviado",
+                "estado": "enviado",
+            },
+        )
+        self.notification_post.side_effect = [pdf_response, notification_response]
+
         response = self.client.post(
             f"/api/internal/pedidos/{self.order.pk}/payment-result/",
             {
@@ -651,17 +673,24 @@ class InternalPaymentResultTests(APITestCase):
         self.order.refresh_from_db()
         self.assertEqual(self.order.estado.nombre, "Pendiente de preparación")
         self.assertEqual(self.order.referencia_pago, "demo-reference-31")
-        self.notification_post.assert_called_once()
+        self.assertEqual(self.notification_post.call_count, 2)
         self.assertIn(
-            "/api/internal/notificaciones/pedidos/",
-            self.notification_post.call_args.args[0],
+            "/api/internal/facturas/demo-pdf/",
+            self.notification_post.call_args_list[0].args[0],
         )
         self.assertEqual(
-            self.notification_post.call_args.kwargs["json"]["detalles"][0][
+            self.notification_post.call_args_list[0].kwargs["json"]["detalles"][0][
                 "producto_nombre"
             ],
             "Cortina Blackout",
         )
+        notification_payload = self.notification_post.call_args_list[1].kwargs["json"]
+        self.assertIn(
+            "/api/internal/notificaciones/pedidos/",
+            self.notification_post.call_args_list[1].args[0],
+        )
+        self.assertEqual(notification_payload["numero_factura"], "DEMO-000001")
+        self.assertEqual(notification_payload["pdf_base64"], "JVBERi1kZW1v")
 
     def test_expired_unpaid_order_is_rejected_and_customer_is_notified(self):
         self.order.fecha_pedido = timezone.now() - timedelta(minutes=5, seconds=1)

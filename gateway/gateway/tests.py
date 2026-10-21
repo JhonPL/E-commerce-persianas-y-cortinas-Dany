@@ -74,6 +74,46 @@ class OrdersServiceProxyTests(SimpleTestCase):
 
 
 @override_settings(
+    PAYMENTS_SERVICE_URL="http://payments.test/api/v1/payments",
+    PAYMENTS_SERVICE_TIMEOUT_SECONDS=17,
+)
+class PaymentsServiceProxyTests(SimpleTestCase):
+    @patch("gateway.proxies.requests.request")
+    def test_retries_transient_failure_with_the_same_idempotent_request(self, request):
+        request.side_effect = [
+            requests.Timeout("temporary timeout"),
+            Mock(
+                content=b'{"outcome":"approved"}',
+                status_code=200,
+                headers={"Content-Type": "application/json"},
+            ),
+        ]
+        body = (
+            '{"pedido_id":31,"outcome":"approved",'
+            '"request_id":"5d65118b-b3e7-47c1-aedc-f8b349a476d8"}'
+        )
+
+        response = self.client.post(
+            "/api/v1/payments/simulate/",
+            data=body,
+            content_type="application/json",
+            HTTP_AUTHORIZATION="Bearer customer-token",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(request.call_count, 2)
+        self.assertEqual(
+            request.call_args_list[0].args,
+            request.call_args_list[1].args,
+        )
+        self.assertEqual(
+            request.call_args_list[0].kwargs["data"],
+            request.call_args_list[1].kwargs["data"],
+        )
+        self.assertEqual(request.call_args_list[0].kwargs["timeout"], 17)
+
+
+@override_settings(
     NOTIFICATIONS_SERVICE_URL="http://notifications.test",
     INTERNAL_SERVICE_TOKEN="gateway-internal-test-token",
     SERVICE_TIMEOUT_SECONDS=3,

@@ -100,7 +100,8 @@
 }
 
 .field small {
-  color: rgba(247, 239, 211, 0.68);
+  color: #c4bdad;
+  font-size: 0.88rem;
 }
 
 .field input:focus,
@@ -114,7 +115,7 @@
 .field select:disabled,
 .field textarea:disabled {
   background: #111;
-  color: rgba(247, 239, 211, 0.55);
+  color: #c4bdad;
 }
 
 .field select option {
@@ -122,26 +123,6 @@
   color: #f7efd3;
 }
 
-.choice {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 13px 0;
-  border-top: 1px solid rgba(143, 194, 99, 0.12);
-  cursor: pointer;
-}
-
-.choice input {
-  margin-top: 4px;
-  accent-color: #8fc263;
-}
-
-.choice span {
-  display: grid;
-  gap: 4px;
-}
-
-.choice small,
 .notice,
 .securityNote {
   color: rgba(247, 239, 211, 0.65);
@@ -276,4 +257,65 @@
   .resultCard {
     padding: 19px;
   }
+}
+
+.cardPreview {
+  display: grid;
+  gap: 25px;
+  min-height: 174px;
+  margin: 18px 0;
+  padding: 20px;
+  border: 1px solid rgba(207, 231, 149, 0.45);
+  border-radius: 12px;
+  background: linear-gradient(135deg, #255b35, #10211b 72%);
+  color: #f7efd3;
+  box-shadow: 0 10px 24px rgb(0 0 0 / 22%);
+}
+
+.cardPreviewTop,
+.cardPreviewFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.cardPreviewTop {
+  color: #cfe795;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.cardPreview > strong {
+  font-size: 1.2rem;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.cardPreviewFooter {
+  color: #f7efd3;
+  font-size: 0.88rem;
+  text-transform: uppercase;
+}
+
+.demoCards {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-left: 3px solid #8fc263;
+  background: rgba(143, 194, 99, 0.08);
+  color: rgba(247, 239, 211, 0.8);
+  font-size: 0.92rem;
+}
+
+.demoCards p {
+  margin: 4px 0;
+}
+
+.processingIcon {
+  margin-right: 8px;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }

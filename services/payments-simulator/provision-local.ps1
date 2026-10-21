@@ -159,6 +159,7 @@ try {
         INTERNAL_SERVICE_TOKEN = [string]$gatewayConfig.INTERNAL_SERVICE_TOKEN
         AUTH_SERVICE_URL = ([string]$gatewayConfig.IDENTITY_SERVICE_URL).TrimEnd("/") + "/api/v1/auth/me/"
         ORDERS_SERVICE_URL = [string]$gatewayConfig.ORDERS_SERVICE_URL
+        ORDERS_SERVICE_TIMEOUT_SECONDS = 45
         SERVICE_TIMEOUT_SECONDS = 5
         PAYMENT_SIMULATOR_ENABLED = $true
     }
@@ -192,7 +193,7 @@ try {
     $gatewayConfig | Add-Member -NotePropertyName PAYMENTS_SERVICE_URL `
         -NotePropertyValue "http://127.0.0.1:8007/api/v1/payments" -Force
     $gatewayConfig | Add-Member -NotePropertyName PAYMENTS_SERVICE_TIMEOUT_SECONDS `
-        -NotePropertyValue 10 -Force
+        -NotePropertyValue 60 -Force
     $gatewayConfig |
         ConvertTo-Json -Depth 8 |
         Set-Content -Path $gatewayConfigPath -Encoding utf8

@@ -221,7 +221,15 @@ def order_email_html(
     )
 
 
-def send_order_email(*, subject, body, html_body, recipient, reply_to=None):
+def send_order_email(
+    *,
+    subject,
+    body,
+    html_body,
+    recipient,
+    reply_to=None,
+    attachments=(),
+):
     email = EmailMultiAlternatives(
         subject,
         body,
@@ -230,6 +238,8 @@ def send_order_email(*, subject, body, html_body, recipient, reply_to=None):
         reply_to=[reply_to] if reply_to else None,
     )
     email.attach_alternative(html_body, "text/html")
+    for filename, content, mimetype in attachments:
+        email.attach(filename, content, mimetype)
     logo_path = (
         Path(__file__).resolve().parent / "assets" / "logogreen.png"
     )

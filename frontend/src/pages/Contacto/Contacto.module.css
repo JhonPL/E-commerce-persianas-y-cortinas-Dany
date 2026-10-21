@@ -10,9 +10,9 @@
 }
 .heroOverlay { position: absolute; inset: 0; background: linear-gradient(to bottom, transparent 50%, #000 100%); }
 .heroContent { position: relative; z-index: 2; padding: 0 20px; }
-.eyebrow { font-size: 0.7rem; letter-spacing: 0.25em; text-transform: uppercase; color: #8fc263; margin-bottom: 10px; }
+.eyebrow { font-size: 0.82rem; letter-spacing: 0.12em; text-transform: uppercase; color: #a9d47f; margin-bottom: 10px; }
 .heroTitle { font-family: "Brown Sugar", serif; font-size: clamp(2rem, 5vw, 3.2rem); font-weight: normal; color: #f7efd3; letter-spacing: 0.04em; margin-bottom: 10px; }
-.heroSub { font-size: 0.95rem; font-weight: 300; color: #a0b890; line-height: 1.7; }
+.heroSub { font-size: 1.05rem; font-weight: 400; color: #d2cdbc; line-height: 1.7; }
 
 /* Body */
 .body { padding: 60px 50px 80px; }
@@ -25,14 +25,14 @@
 .infoCard { display: flex; align-items: flex-start; gap: 14px; padding: 14px 16px; background: #0d0d0d; border: 1px solid rgba(143,194,99,0.1); border-radius: 9px; transition: border-color 0.25s; }
 .infoCard:hover { border-color: rgba(143,194,99,0.25); }
 .infoCardIcon { width: 36px; height: 36px; border-radius: 8px; background: rgba(143,194,99,0.1); color: #8fc263; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.infoCardLabel { display: block; font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase; color: #8fc263; margin-bottom: 2px; }
-.infoCardValue { font-size: 0.88rem; color: #f7efd3; font-weight: 300; }
+.infoCardLabel { display: block; font-size: 0.82rem; letter-spacing: 0; text-transform: uppercase; color: #a9d47f; margin-bottom: 4px; }
+.infoCardValue { font-size: 0.95rem; color: #f7efd3; font-weight: 400; }
 
 /* WhatsApp button */
 .waBtn {
   display: flex; align-items: center; justify-content: center; gap: 10px;
   background: #25D366; color: #fff;
-  font-size: 0.82rem; font-weight: 600; letter-spacing: 0.08em;
+  font-size: 0.95rem; font-weight: 600; letter-spacing: 0;
   padding: 13px; border-radius: 8px; border: none; cursor: pointer;
   transition: background 0.25s, transform 0.2s;
 }
@@ -44,26 +44,26 @@
 /* Form col */
 .formCol { background: #0d0d0d; border: 1px solid rgba(143,194,99,0.1); border-radius: 12px; padding: 32px; display: flex; flex-direction: column; gap: 20px; }
 .formTitle { font-family: "Brown Sugar", serif; font-size: 1.3rem; font-weight: normal; color: #f7efd3; letter-spacing: 0.03em; }
-.formSub { font-size: 0.82rem; color: #888; margin-top: -12px; }
+.formSub { font-size: 0.95rem; color: #c4bdad; margin-top: -12px; }
 
 /* Form fields */
 .formGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .field { display: flex; flex-direction: column; gap: 6px; }
 .fieldFull { grid-column: 1 / -1; }
-.label { font-size: 0.72rem; font-weight: 500; letter-spacing: 0.06em; color: #f7efd3; }
+.label { font-size: 0.9rem; font-weight: 500; letter-spacing: 0; color: #f7efd3; }
 .req { color: #8fc263; }
-.input { background: #111; border: 1px solid rgba(255,255,255,0.1); color: #f7efd3; font-size: 0.9rem; padding: 10px 14px; border-radius: 7px; outline: none; transition: border-color 0.25s; font-family: inherit; width: 100%; }
+.input { background: #111; border: 1px solid rgba(255,255,255,0.18); color: #f7efd3; font-size: 1rem; padding: 11px 14px; border-radius: 7px; outline: none; transition: border-color 0.25s; font-family: inherit; width: 100%; }
 .input:focus { border-color: #8fc263; box-shadow: 0 0 0 3px rgba(143,194,99,0.08); }
-.input::placeholder { color: #444; }
+.input::placeholder { color: #b8b2a2; opacity: 1; }
 .inputErr { border-color: #e74c3c !important; }
 .textarea { resize: vertical; min-height: 120px; }
-.fieldErr { font-size: 0.68rem; color: #e74c3c; }
+.fieldErr { font-size: 0.85rem; color: #ff8b80; }
 
 /* Submit */
 .btnPrimary {
   display: flex; align-items: center; justify-content: center; gap: 8px;
   background: #8fc263; color: #000;
-  font-size: 0.82rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  font-size: 0.95rem; font-weight: 700; letter-spacing: 0; text-transform: uppercase;
   padding: 13px 28px; border-radius: 7px; border: none; cursor: pointer;
   transition: background 0.25s, transform 0.2s; align-self: flex-start;
 }
@@ -75,7 +75,7 @@
 /* Success */
 .successBox { display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; padding: 40px 20px; }
 .successTitle { font-family: "Brown Sugar", serif; font-size: 1.4rem; color: #f7efd3; font-weight: normal; }
-.successSub { font-size: 0.9rem; color: #888; line-height: 1.6; }
+.successSub { font-size: 0.95rem; color: #c4bdad; line-height: 1.6; }
 
 /* Responsive */
 @media (max-width: 860px) {

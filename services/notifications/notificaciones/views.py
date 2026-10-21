@@ -1,3 +1,4 @@
+import base64
 import logging
 import smtplib
 import socket
@@ -49,6 +50,7 @@ def _send_order_email(
     message,
     html_message,
     reply_to=None,
+    attachments=(),
 ):
     with transaction.atomic():
         notification, _ = NotificacionAdmin.objects.get_or_create(
@@ -91,6 +93,7 @@ def _send_order_email(
             html_body=html_message,
             recipient=destinatario,
             reply_to=reply_to,
+            attachments=attachments,
         )
     except (smtplib.SMTPException, OSError, socket.timeout) as exc:
         logger.exception("Failed to send order notification for order %s", pedido_id)
@@ -123,6 +126,7 @@ class PedidoApprovedNotificationView(APIView):
                 {"detail": "El correo administrativo debe ser distinto del remitente SMTP."},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
+        invoice_pdf = base64.b64decode(data["pdf_base64"], validate=True)
         lines = "\n".join(
             (
                 f"- {item['producto_nombre']} (producto #{item['producto_id']}): "
@@ -173,6 +177,8 @@ class PedidoApprovedNotificationView(APIView):
                 f"Hola {data['cliente_nombre']},\n\n"
                 f"El pago de tu pedido #{pedido_id} fue confirmado.\n"
                 f"Total: ${data['total']:,.0f} COP\n\n"
+                f"Comprobante adjunto: {data['numero_factura']}.pdf. "
+                "Es una demostración sin validez fiscal ni cobro real.\n\n"
                 f"Productos:\n{lines}\n\n"
                 "El pago fue aprobado por el simulador; no se realizó un cobro real."
             ),
@@ -191,9 +197,17 @@ class PedidoApprovedNotificationView(APIView):
                 recipient=data.get("nombre_recibe"),
                 address=data.get("direccion"),
                 notice=(
-                    "Pago aprobado por el simulador. No se realizó ningún cobro real."
+                    f"Comprobante adjunto: {data['numero_factura']}.pdf. "
+                    "Es una demostración sin validez DIAN; no se realizó ningún cobro real."
                 ),
             ),
+            attachments=[
+                (
+                    f"{data['numero_factura']}.pdf",
+                    invoice_pdf,
+                    "application/pdf",
+                )
+            ],
         )
 
         return Response(

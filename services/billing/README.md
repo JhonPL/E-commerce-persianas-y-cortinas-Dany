@@ -1,12 +1,15 @@
 # Billing Service
 
-Microservicio Django dueño de los registros de facturación. Mantiene referencias
-a pedidos mediante `pedido_id`, sin claves foráneas entre servicios.
+Microservicio Django dueño de los registros y comprobantes de facturación.
+Mantiene referencias a pedidos mediante `pedido_id`, sin claves foráneas entre
+servicios.
 
-El servicio expone una API interna de persistencia, protegida por
-`X-Internal-Service-Token`, y usa una base PostgreSQL independiente. La
-facturación aún no genera, firma ni transmite documentos a la DIAN y no forma
-parte del checkout simulado.
+El servicio expone una API interna protegida por `X-Internal-Service-Token` y
+usa una base PostgreSQL independiente. `POST /api/internal/facturas/demo-pdf/`
+registra idempotentemente el pedido y genera un PDF adjuntable con su resumen.
+El comprobante incluye una advertencia de que es una demostración: no genera un
+CUFE, no se firma ni se transmite a la DIAN y no es una factura electrónica con
+validez fiscal.
 
 ## Configuración y desarrollo
 
@@ -20,6 +23,8 @@ Desde la raíz, el entorno Python es `.venv`:
 
 Endpoints:
 
+- `POST /api/internal/facturas/demo-pdf/`: genera el PDF de demostración para
+  un pedido aprobado.
 - `GET /api/internal/facturas/`: lista facturas.
 - `POST /api/internal/facturas/`: guarda una factura ya preparada.
 - `GET /api/internal/facturas/pedido/{pedido_id}/`: consulta la factura

@@ -1,3 +1,4 @@
+import base64
 import json
 import tempfile
 from datetime import datetime, timedelta, timezone
@@ -30,6 +31,8 @@ class NotificationApiTests(APITestCase):
             "nombre_recibe": "Persona receptora",
             "direccion": "Calle 10, Granada, Meta",
             "total": "125000.00",
+            "numero_factura": "DEMO-000041",
+            "pdf_base64": base64.b64encode(b"%PDF-1.4 demo").decode("ascii"),
             "detalles": [
                 {
                     "producto_id": 12,
@@ -119,6 +122,15 @@ class NotificationApiTests(APITestCase):
         self.assertIn("Calle 10", customer_message.alternatives[0][0])
         self.assertIn("Abrir gestión de pedidos", admin_message.alternatives[0][0])
         self.assertIn("cid:brand-logo", customer_message.alternatives[0][0])
+        pdf_attachments = [
+            attachment
+            for attachment in customer_message.attachments
+            if isinstance(attachment, tuple)
+            and attachment[2] == "application/pdf"
+        ]
+        self.assertEqual(len(pdf_attachments), 1)
+        self.assertEqual(pdf_attachments[0][0], "DEMO-000041.pdf")
+        self.assertEqual(pdf_attachments[0][1], b"%PDF-1.4 demo")
         self.assertIn(
             b"Content-ID: <brand-logo>",
             customer_message.message().as_bytes(),
@@ -127,6 +139,54 @@ class NotificationApiTests(APITestCase):
             b"Content-Type: image/png",
             customer_message.message().as_bytes(),
         )
+
+    def test_approved_order_rejects_non_pdf_attachment(self):
+        self.payload["pdf_base64"] = base64.b64encode(b"not a pdf").decode("ascii")
+
+        response = self._post()
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(NotificacionAdmin.objects.count(), 0)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_same_admin_and_customer_recipient_gets_separate_emails(self):
+        self.payload["cliente_email"] = "jhonpaternina2002@gmail.com"
+
+        first = self._post()
+        retry = self._post()
+
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+        self.assertEqual(first.data["admin_estado"], NotificacionAdmin.ENVIADO)
+        self.assertEqual(first.data["cliente_estado"], NotificacionAdmin.ENVIADO)
+        self.assertEqual(retry.status_code, status.HTTP_200_OK)
+        self.assertTrue(retry.data["duplicate"])
+        self.assertEqual(NotificacionAdmin.objects.count(), 2)
+        self.assertEqual(len(mail.outbox), 2)
+        admin_message = next(
+            message for message in mail.outbox
+            if "Nuevo pedido recibido" in message.subject
+        )
+        customer_message = next(
+            message for message in mail.outbox
+            if "Pago confirmado" in message.subject
+        )
+        self.assertEqual(admin_message.to, ["jhonpaternina2002@gmail.com"])
+        self.assertEqual(customer_message.to, ["jhonpaternina2002@gmail.com"])
+        pdf_attachments = [
+            attachment
+            for attachment in customer_message.attachments
+            if isinstance(attachment, tuple)
+            and attachment[2] == "application/pdf"
+        ]
+        self.assertEqual(len(pdf_attachments), 1)
+        self.assertEqual(pdf_attachments[0][0], "DEMO-000041.pdf")
+        admin_pdf_attachments = [
+            attachment
+            for attachment in admin_message.attachments
+            if isinstance(attachment, tuple)
+            and attachment[2] == "application/pdf"
+        ]
+        self.assertEqual(admin_pdf_attachments, [])
 
     def test_retry_after_success_is_idempotent(self):
         first = self._post()

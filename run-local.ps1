@@ -62,6 +62,13 @@ if ($LASTEXITCODE -ne 0) {
     throw "No fue posible aplicar las migraciones del servicio de pedidos."
 }
 
+Write-Host "Aplicando migraciones del servicio de facturación..."
+& $powerShell.Source -NoProfile -ExecutionPolicy Bypass `
+    -File $servicesScript -Service billing -MigrateOnly
+if ($LASTEXITCODE -ne 0) {
+    throw "No fue posible aplicar las migraciones del servicio de facturación."
+}
+
 Write-Host "Iniciando servicios y frontend en ventanas separadas..."
 foreach ($service in $serviceNames) {
     Start-Process -FilePath $powerShell.Source `
@@ -93,7 +100,7 @@ Start-Process -FilePath $powerShell.Source `
     ) | Out-Null
 
 $quotedFrontendDirectory = $frontendDirectory.Replace("'", "''")
-$frontendCommand = "Set-Location -LiteralPath '$quotedFrontendDirectory'; npm run dev -- --host 127.0.0.1"
+$frontendCommand = "Set-Location -LiteralPath '$quotedFrontendDirectory'; npm run dev -- --host 127.0.0.1 --strictPort"
 Start-Process -FilePath $powerShell.Source `
     -WorkingDirectory $frontendDirectory `
     -ArgumentList "-NoExit -Command `"$frontendCommand`"" | Out-Null
