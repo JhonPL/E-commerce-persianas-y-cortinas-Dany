@@ -627,6 +627,7 @@ class InternalPaymentResultTests(APITestCase):
                 json=lambda: {
                     "pedido_id": self.order.pedido_id,
                     "admin_estado": "enviado",
+                    "cliente_estado": "enviado",
                     "estado": "enviado",
                 },
             ),

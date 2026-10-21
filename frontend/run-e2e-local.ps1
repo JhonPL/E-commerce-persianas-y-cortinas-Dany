@@ -4,7 +4,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
-$pythonPath = Join-Path $repositoryRoot "backend\venv\Scripts\python.exe"
+$pythonPath = Join-Path $repositoryRoot ".venv\Scripts\python.exe"
 $playwrightCli = Join-Path $PSScriptRoot "node_modules\@playwright\test\cli.js"
 $configDirectory = Join-Path $env:LOCALAPPDATA "CortinasPersianas\config"
 $runId = [Guid]::NewGuid().ToString("N")

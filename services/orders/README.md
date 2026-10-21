@@ -1,106 +1,55 @@
 # Orders Service
 
-Servicio Django independiente para pedidos, sus detalles, estados, historial y
-direcciones de entrega. El backend conserva las rutas públicas y de
-administración como proxy; el frontend mantiene sus URLs actuales.
+Servicio Django dueño de pedidos, detalles, estados, historial y direcciones de
+entrega. Usa su propia base PostgreSQL; los IDs de usuario y producto son
+referencias a los servicios de identidad y catálogo, no claves foráneas entre
+bases.
 
-## Datos y entorno
+## Configuración y desarrollo
 
-El servicio usa una base PostgreSQL propia. Copia `.env.example` a `.env`,
-configura los valores y establece `INTERNAL_SERVICE_TOKEN` con el mismo valor
-en el backend y en los servicios que realicen llamadas internas; debe coincidir
-entre cada servicio que se comunica.
+Configura `.env` con las credenciales de la base, las URL de identidad, catálogo,
+carrito y notificaciones, y el token interno compartido.
 
-Instala dependencias y aplica migraciones desde esta carpeta:
-
-```powershell
-py -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-python manage.py migrate
-python manage.py runserver 127.0.0.1:8003
-```
-
-## Transferencia de datos
-
-Primero crea un respaldo verificado de la base monolítica. Ejecuta la
-exportación desde `backend` mientras el backend todavía usa la base actual:
+Desde la raíz, el entorno Python es `.venv`. Para iniciar manualmente:
 
 ```powershell
-python manage.py export_orders --output ..\orders-service\orders-export.json
+..\..\.venv\Scripts\python.exe manage.py migrate
+..\..\.venv\Scripts\python.exe manage.py runserver 127.0.0.1:8003
 ```
 
-La exportación incluye pedidos, líneas, estados, historial, las direcciones
-asociadas y una copia de nombre/correo para presentar pedidos históricos. No
-exporta contraseñas ni credenciales de usuario. El archivo contiene
-información personal y debe mantenerse fuera del repositorio y protegerse
-durante la transferencia.
+El arranque local completo usa `.\run-local.ps1`: aplica las migraciones e
+inicia los siete servicios, el gateway, el frontend y el monitor de pagos
+vencidos.
 
-Con `orders-service` conectado a su base vacía y con las migraciones aplicadas:
+## Integraciones y comportamiento
+
+- El checkout obtiene el carrito y calcula el total en este servicio; no confía
+  en importes enviados por el navegador.
+- Guarda el nombre del producto como copia histórica junto a su identificador.
+- `payments-simulator` consulta el pedido mediante una API interna autenticada y
+  comunica el resultado; no procesa cobros reales ni tarjetas.
+- Si un pedido no recibe aprobación dentro de cinco minutos, pasa a “Pago
+  rechazado”, se registra el cambio y se notifica al cliente. Un pago tardío se
+  rechaza.
+- El aviso inicial confirma la recepción únicamente al cliente. El administrador
+  recibe los detalles del pedido solo tras la aprobación simulada.
+- Los pedidos sin pago no aparecen en la cola de administración ni se cuentan
+  como ventas.
+- Los estados posteriores a la aprobación avanzan de “Pendiente de preparación”
+  a “Preparado” y luego “Enviado”. Cada cambio notifica al cliente.
+
+El comando `expire_unpaid_orders` permite comprobar vencimientos una sola vez o
+mantener un monitor activo:
 
 ```powershell
-python manage.py import_orders --input orders-export.json
+..\..\.venv\Scripts\python.exe manage.py expire_unpaid_orders
+..\..\.venv\Scripts\python.exe manage.py expire_unpaid_orders --loop --interval 10
 ```
-
-La importación conserva los IDs de pedidos, detalles, direcciones, ciudades,
-departamentos y estados, y rechaza una base que ya contenga datos. Compara los
-conteos de origen e importación antes de redirigir tráfico. No ejecutes el
-corte sobre la base real hasta tener una copia de seguridad recuperable.
-
-Si necesitas datos de demostración, ejecuta el sembrado del monolito **antes**
-de exportar e importar. El comando heredado `seed_demo` aún crea pedidos en la
-base del monolito y no debe ejecutarse después de redirigir el tráfico.
-
-## Integraciones y alcance
-
-- `auth-service` es dueño de identidad y JWT; las solicitudes de usuario se
-  validan contra su endpoint configurado en `AUTH_SERVICE_URL`.
-- Los detalles de producto se consultan a `catalog-service`.
-- El checkout obtiene los artículos de `cart-service` y calcula el total en
-  este servicio; no confía en importes enviados por el navegador.
-- Al crear el pedido se conserva el nombre del producto junto a su ID como
-  copia histórica para los correos y el detalle del pedido.
-- `payments-simulator` consulta el pedido por una API interna autenticada y
-  reporta el resultado simulado. No procesa cobros ni recibe datos de tarjetas.
-- Si no se aprueba el pago dentro de cinco minutos desde la creación, el pedido
-  pasa a “Pago rechazado”, se registra en el historial y se notifica al cliente.
-  Los rechazos explícitos del simulador también se notifican; se puede reintentar
-  antes del vencimiento. Ningún pedido sin pago aparece en la cola del
-  administrador ni se cuenta como venta.
-- `expire_unpaid_orders` busca pedidos vencidos. El arranque completo local
-  aplica primero las migraciones y ejecuta un monitor cada 10 segundos; en otros
-  entornos se debe ejecutar el comando como tarea periódica:
-
-  ```powershell
-  python manage.py expire_unpaid_orders
-  python manage.py expire_unpaid_orders --loop --interval 10
-  ```
-
-- El correo inicial del pedido solo confirma la recepción al cliente. El
-  administrador recibe el resumen del pedido y el nombre de sus productos
-  únicamente cuando el simulador aprueba el pago, estado que inicia el flujo
-  como “Pendiente de preparación”.
-- Después de la aprobación, el estado inicial de preparación lo asigna el
-  sistema. El administrador solo puede avanzar el pedido en orden: de
-  “Pendiente de preparación” a “Preparado” y después a “Enviado”. Después de
-  guardar cada transición válida, el servicio solicita a `notifications-service`
-  que notifique el nuevo estado al correo del cliente. Si falla el correo, el
-  cambio de estado se conserva y la respuesta indica el fallo para mostrarlo en
-  el panel.
-- El backend comprueba con este servicio si un producto está asociado a pedidos
-  antes de permitir borrarlo y después limpia el carrito mediante
-  `cart-service`.
-- Los registros y tablas heredados de pedidos permanecen en la base del
-  monolito durante esta etapa para conservar el grafo de migraciones y las
-  relaciones legacy. Las APIs públicas activas leen y escriben en este
-  servicio.
-- Facturación y notificaciones son servicios separados; sus referencias a
-  pedidos son identificadores, no relaciones de base de datos entre servicios.
 
 ## Verificación
 
 ```powershell
-python manage.py test --settings=orders_service.test_settings
+..\..\.venv\Scripts\python.exe manage.py test --settings=orders_service.test_settings
 ```
 
-La API y el esquema OpenAPI están disponibles en `/api/docs/` y `/api/schema/`.
+La API y su esquema OpenAPI están disponibles en `/api/docs/` y `/api/schema/`.

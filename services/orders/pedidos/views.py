@@ -198,6 +198,7 @@ def _notify_payment_approved(order):
         not isinstance(result, dict)
         or result.get("pedido_id") != order.pedido_id
         or result.get("admin_estado") != "enviado"
+        or result.get("cliente_estado") != "enviado"
     ):
         logger.error(
             "Order %s payment notification delivery was incomplete.",

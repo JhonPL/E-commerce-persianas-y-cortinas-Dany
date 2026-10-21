@@ -2,7 +2,7 @@ $ErrorActionPreference = "Stop"
 
 $repositoryRoot = $PSScriptRoot
 $configDirectory = Join-Path $env:LOCALAPPDATA "CortinasPersianas\config"
-$pythonPath = Join-Path $repositoryRoot "backend\venv\Scripts\python.exe"
+$pythonPath = Join-Path $repositoryRoot ".venv\Scripts\python.exe"
 $frontendDirectory = Join-Path $repositoryRoot "frontend"
 $servicesScript = Join-Path $repositoryRoot "services\run-local.ps1"
 $gatewayScript = Join-Path $repositoryRoot "gateway\run-local.ps1"
@@ -17,7 +17,7 @@ $serviceNames = @(
 )
 
 if (-not (Test-Path -LiteralPath $pythonPath -PathType Leaf)) {
-    throw "No se encontró backend\venv. Prepara primero el entorno Python del proyecto."
+    throw "No se encontró .venv. Consulta el README para preparar el entorno Python."
 }
 if (-not (Test-Path -LiteralPath (Join-Path $frontendDirectory "node_modules") -PathType Container)) {
     throw "No se encontraron las dependencias del frontend. Ejecuta 'npm ci' en frontend."
@@ -25,7 +25,7 @@ if (-not (Test-Path -LiteralPath (Join-Path $frontendDirectory "node_modules") -
 if (-not (Get-Command npm.cmd -ErrorAction SilentlyContinue)) {
     throw "No se encontró npm. Instala Node.js y vuelve a abrir PowerShell."
 }
-if (-not (Test-Path -LiteralPath (Join-Path $configDirectory "backend.json") -PathType Leaf)) {
+if (-not (Test-Path -LiteralPath (Join-Path $configDirectory "gateway.json") -PathType Leaf)) {
     throw "Falta la configuración protegida del gateway en %LOCALAPPDATA%\CortinasPersianas\config."
 }
 foreach ($service in $serviceNames) {

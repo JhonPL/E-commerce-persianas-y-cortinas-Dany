@@ -4,14 +4,14 @@ param(
 
 $ErrorActionPreference = "Stop"
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
-$configPath = Join-Path $env:LOCALAPPDATA "CortinasPersianas\config\backend.json"
-$pythonPath = Join-Path $repositoryRoot "backend\venv\Scripts\python.exe"
+$configPath = Join-Path $env:LOCALAPPDATA "CortinasPersianas\config\gateway.json"
+$pythonPath = Join-Path $repositoryRoot ".venv\Scripts\python.exe"
 
 if (-not (Test-Path -LiteralPath $configPath -PathType Leaf)) {
     throw "No existe la configuración local protegida del gateway."
 }
 if (-not (Test-Path -LiteralPath $pythonPath -PathType Leaf)) {
-    throw "No se encontró el entorno Python del proyecto."
+    throw "No se encontró .venv en la raíz del proyecto."
 }
 
 $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json

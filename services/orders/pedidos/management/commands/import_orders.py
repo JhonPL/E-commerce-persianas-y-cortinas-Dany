@@ -18,7 +18,7 @@ from pedidos.models import (
 
 
 class Command(BaseCommand):
-    help = "Import order data exported by the monolith's export_orders command."
+    help = "Import order data from a JSON export."
 
     def add_arguments(self, parser):
         parser.add_argument(

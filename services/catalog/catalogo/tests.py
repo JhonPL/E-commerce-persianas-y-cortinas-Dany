@@ -65,7 +65,7 @@ class CatalogServiceTests(APITestCase):
         self.assertEqual(len(allowed.data), 2)
 
     @patch("catalogo.authentication.requests.get")
-    def test_product_delete_does_not_call_the_legacy_backend(self, get_identity):
+    def test_product_delete_uses_catalog_service_only(self, get_identity):
         get_identity.return_value = Mock(
             status_code=200,
             json=lambda: {"usuario_id": 4, "rol_nombre": "admin"},

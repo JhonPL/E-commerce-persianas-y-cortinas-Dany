@@ -75,10 +75,13 @@ class NotificationApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["estado"], NotificacionAdmin.ENVIADO)
         self.assertEqual(response.data["admin_estado"], NotificacionAdmin.ENVIADO)
-        self.assertNotIn("cliente_estado", response.data)
-        self.assertEqual(NotificacionAdmin.objects.count(), 1)
+        self.assertEqual(response.data["cliente_estado"], NotificacionAdmin.ENVIADO)
+        self.assertEqual(NotificacionAdmin.objects.count(), 2)
         admin_notification = NotificacionAdmin.objects.get(
             evento_id="pedido:41:payment-approved",
+        )
+        customer_notification = NotificacionAdmin.objects.get(
+            evento_id="pedido:41:payment-approved:customer",
         )
         self.assertEqual(admin_notification.pedido_id, 41)
         self.assertEqual(
@@ -86,29 +89,43 @@ class NotificationApiTests(APITestCase):
             "jhonpaternina2002@gmail.com",
         )
         self.assertEqual(admin_notification.intentos, 1)
-        self.assertEqual(len(mail.outbox), 1)
-        admin_message = mail.outbox[0]
-        self.assertEqual(admin_message.to, ["jhonpaternina2002@gmail.com"])
+        self.assertEqual(
+            customer_notification.destinatario,
+            "customer@example.com",
+        )
+        self.assertEqual(len(mail.outbox), 2)
+        admin_message = next(
+            message
+            for message in mail.outbox
+            if message.to == ["jhonpaternina2002@gmail.com"]
+        )
+        customer_message = next(
+            message
+            for message in mail.outbox
+            if message.to == ["customer@example.com"]
+        )
         self.assertEqual(admin_message.from_email, "jhon.paternina302@gmail.com")
+        self.assertEqual(customer_message.from_email, "jhon.paternina302@gmail.com")
         self.assertIn("Pedido ID: 41", admin_message.body)
         self.assertIn("customer@example.com", admin_message.body)
         self.assertIn("Cortina Blackout", admin_message.body)
         self.assertIn("Productos:", admin_message.body)
         self.assertIn("Nuevo pedido recibido", admin_message.subject)
-        self.assertIn("Pago confirmado", admin_message.alternatives[0][0])
-        self.assertIn("Cliente de prueba", admin_message.alternatives[0][0])
-        self.assertIn("customer@example.com", admin_message.alternatives[0][0])
-        self.assertIn("Persona receptora", admin_message.alternatives[0][0])
-        self.assertIn("Calle 10", admin_message.alternatives[0][0])
+        self.assertIn("Pago confirmado", customer_message.subject)
+        self.assertIn("¡Pago confirmado!", customer_message.alternatives[0][0])
+        self.assertIn("Cliente de prueba", customer_message.alternatives[0][0])
+        self.assertIn("Cortina Blackout", customer_message.alternatives[0][0])
+        self.assertIn("Persona receptora", customer_message.alternatives[0][0])
+        self.assertIn("Calle 10", customer_message.alternatives[0][0])
         self.assertIn("Abrir gestión de pedidos", admin_message.alternatives[0][0])
-        self.assertIn("cid:brand-logo", admin_message.alternatives[0][0])
+        self.assertIn("cid:brand-logo", customer_message.alternatives[0][0])
         self.assertIn(
             b"Content-ID: <brand-logo>",
-            admin_message.message().as_bytes(),
+            customer_message.message().as_bytes(),
         )
         self.assertIn(
             b"Content-Type: image/png",
-            admin_message.message().as_bytes(),
+            customer_message.message().as_bytes(),
         )
 
     def test_retry_after_success_is_idempotent(self):
@@ -117,8 +134,8 @@ class NotificationApiTests(APITestCase):
 
         self.assertEqual(first.data["estado"], NotificacionAdmin.ENVIADO)
         self.assertTrue(second.data["duplicate"])
-        self.assertEqual(NotificacionAdmin.objects.count(), 1)
-        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(NotificacionAdmin.objects.count(), 2)
+        self.assertEqual(len(mail.outbox), 2)
 
     def test_concurrent_retry_does_not_start_a_second_email(self):
         NotificacionAdmin.objects.create(
@@ -131,9 +148,11 @@ class NotificationApiTests(APITestCase):
 
         response = self._post()
 
-        self.assertTrue(response.data["duplicate"])
+        self.assertFalse(response.data["duplicate"])
         self.assertEqual(response.data["admin_estado"], NotificacionAdmin.REINTENTANDO)
-        self.assertEqual(len(mail.outbox), 0)
+        self.assertEqual(response.data["cliente_estado"], NotificacionAdmin.ENVIADO)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["customer@example.com"])
 
     def test_stale_retry_can_be_reclaimed_after_worker_failure(self):
         notification = NotificacionAdmin.objects.create(
@@ -152,7 +171,8 @@ class NotificationApiTests(APITestCase):
 
         self.assertEqual(response.data["estado"], NotificacionAdmin.ENVIADO)
         self.assertEqual(notification.intentos, 2)
-        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(response.data["cliente_estado"], NotificacionAdmin.ENVIADO)
+        self.assertEqual(len(mail.outbox), 2)
 
     @patch(
         "notificaciones.views.EmailMessage.send",
@@ -163,7 +183,8 @@ class NotificationApiTests(APITestCase):
         notifications = NotificacionAdmin.objects.order_by("evento_id")
         self.assertEqual(failed.status_code, status.HTTP_200_OK)
         self.assertEqual(failed.data["estado"], NotificacionAdmin.FALLIDO)
-        self.assertEqual(notifications.count(), 1)
+        self.assertEqual(failed.data["cliente_estado"], NotificacionAdmin.FALLIDO)
+        self.assertEqual(notifications.count(), 2)
         self.assertTrue(
             all(
                 notification.error_detalle == "SMTP unavailable"
@@ -176,9 +197,10 @@ class NotificationApiTests(APITestCase):
         retried = self._post()
         notifications = list(NotificacionAdmin.objects.order_by("evento_id"))
         self.assertEqual(retried.data["estado"], NotificacionAdmin.ENVIADO)
+        self.assertEqual(retried.data["cliente_estado"], NotificacionAdmin.ENVIADO)
         self.assertEqual(
             [notification.intentos for notification in notifications],
-            [2],
+            [2, 2],
         )
         self.assertTrue(
             all(notification.error_detalle is None for notification in notifications)

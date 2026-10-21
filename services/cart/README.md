@@ -1,65 +1,38 @@
 # Cart Service
 
-Servicio Django independiente para carritos de compra. El backend conserva las
-rutas `/api/v1/carrito/` como proxy, de modo que el frontend mantiene su
-contrato actual.
+Servicio Django dueño de los carritos de compra. El gateway conserva las rutas
+que usa el frontend.
 
-## Datos y entorno
+## Configuración y desarrollo
 
-El servicio usa una base PostgreSQL propia. Copia `.env.example` a `.env`,
-configura los valores y configura `INTERNAL_SERVICE_TOKEN` con el mismo valor en
-`backend/.env`, `catalog-service/.env`, `cart-service/.env` y
-`orders-service/.env` y `auth-service/.env`.
+Configura `.env` con una base PostgreSQL independiente, `AUTH_SERVICE_URL`,
+`CATALOGO_SERVICE_INTERNAL_URL` y el token interno compartido.
 
-Instala dependencias y aplica migraciones desde esta carpeta:
+Desde la raíz del repositorio, el entorno Python compartido es `.venv`. Para
+iniciar manualmente:
 
 ```powershell
-py -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-python manage.py migrate
-python manage.py runserver 127.0.0.1:8002
+..\..\.venv\Scripts\python.exe manage.py migrate
+..\..\.venv\Scripts\python.exe manage.py runserver 127.0.0.1:8002
 ```
 
-## Migración de datos
-
-Antes de cambiar el tráfico, exporta los ítems existentes desde la raíz
-`Cortinas-Pers` y carga el fixture en esta carpeta:
-
-```powershell
-python backend\manage.py dumpdata carrito.CarritoItem --indent 2 --output carrito.json
-python cart-service\manage.py loaddata carrito.json
-```
-
-La estructura del fixture conserva los IDs de usuario, producto e ítem; en este
-servicio `usuario` es un identificador entero, no una relación con la base de
-identidad. No subas el fixture al repositorio: puede contener datos privados.
-Realiza y verifica una copia de seguridad de la base antes de la exportación y
-de la migración.
-
-El identificador de secuencia para `item_id` queda actualizado por la carga de
-fixtures de Django. Tras verificar el conteo y contenido importado, inicia el
-servicio en el puerto 8002 y el backend en el puerto 8000. El backend reenvía
-las rutas existentes del carrito a este servicio.
+`.\run-local.ps1` inicia este servicio en el entorno local completo.
 
 ## Integraciones
 
-- La autenticación de usuario se valida contra
-  `AUTH_SERVICE_URL` (`auth-service/api/v1/auth/me/`); `auth-service` es dueño
-  de la identidad y de los JWT.
-- La información y disponibilidad de productos se consulta al endpoint interno
-  de `catalog-service`, protegido por `INTERNAL_SERVICE_TOKEN`.
-- El borrado de un producto solicita al backend que compruebe referencias en
-  pedidos. Si no hay pedidos, el backend solicita a este servicio limpiar sus
-  ítems antes de permitir el borrado.
-- El endpoint interno `DELETE /api/internal/carrito/productos/{id}/` solo
-  acepta el token entre servicios.
-- Pagos y pedidos permanecen en el backend durante esta etapa.
+- La identidad valida los tokens y es dueña de las cuentas de usuario.
+- Los datos y precios vigentes de los productos se consultan en catálogo.
+- Los IDs de usuario y producto se guardan como referencias entre servicios,
+  sin claves foráneas a bases ajenas.
+- El gateway coordina la verificación de referencias en pedidos y la limpieza
+  del carrito antes de eliminar un producto.
+- El pago simulado se procesa en `payments-simulator`; no se manejan cobros
+  reales ni datos de tarjeta.
 
 ## Verificación
 
 ```powershell
-python manage.py test --settings=cart_service.test_settings
+..\..\.venv\Scripts\python.exe manage.py test --settings=cart_service.test_settings
 ```
 
-La API y el esquema OpenAPI están disponibles en `/api/docs/` y `/api/schema/`.
+La API y su esquema OpenAPI están disponibles en `/api/docs/` y `/api/schema/`.

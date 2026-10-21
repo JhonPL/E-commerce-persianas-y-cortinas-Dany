@@ -18,7 +18,7 @@ foreach ($property in $config.PSObject.Properties) {
 }
 
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$python = Join-Path $repoRoot "backend\venv\Scripts\python.exe"
+$python = Join-Path $repoRoot ".venv\Scripts\python.exe"
 if (-not (Test-Path $python)) {
     $pythonCommand = Get-Command python.exe -ErrorAction SilentlyContinue
     if (-not $pythonCommand) {

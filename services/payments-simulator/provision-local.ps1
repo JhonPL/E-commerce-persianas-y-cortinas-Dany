@@ -5,22 +5,22 @@ $serviceName = "payments_simulator_service"
 $databaseName = "cortinas_payments_simulator"
 $configDirectory = Join-Path $env:LOCALAPPDATA "CortinasPersianas\config"
 $paymentsConfigPath = Join-Path $configDirectory "payments.json"
-$backendConfigPath = Join-Path $configDirectory "backend.json"
+$gatewayConfigPath = Join-Path $configDirectory "gateway.json"
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 
-if (-not (Test-Path $backendConfigPath)) {
-    throw "No existe la configuración protegida del backend: $backendConfigPath"
+if (-not (Test-Path $gatewayConfigPath)) {
+    throw "No existe la configuración protegida del gateway: $gatewayConfigPath"
 }
 
-$backendConfig = Get-Content $backendConfigPath -Raw | ConvertFrom-Json
+$gatewayConfig = Get-Content $gatewayConfigPath -Raw | ConvertFrom-Json
 $ordersConfigPath = Join-Path $configDirectory "orders.json"
 if (-not (Test-Path $ordersConfigPath)) {
     throw "No existe la configuración protegida de pedidos: $ordersConfigPath"
 }
 $ordersConfig = Get-Content $ordersConfigPath -Raw | ConvertFrom-Json
 
-if ([string]::IsNullOrWhiteSpace($backendConfig.INTERNAL_SERVICE_TOKEN)) {
-    throw "La configuración del backend no contiene el token interno compartido."
+if ([string]::IsNullOrWhiteSpace($gatewayConfig.INTERNAL_SERVICE_TOKEN)) {
+    throw "La configuración del gateway no contiene el token interno compartido."
 }
 
 $psqlPath = $null
@@ -156,9 +156,9 @@ try {
         PAYMENTS_DB_PASSWORD = $script:servicePassword
         PAYMENTS_DB_HOST = $hostName
         PAYMENTS_DB_PORT = $port
-        INTERNAL_SERVICE_TOKEN = [string]$backendConfig.INTERNAL_SERVICE_TOKEN
-        AUTH_SERVICE_URL = ([string]$backendConfig.IDENTITY_SERVICE_URL).TrimEnd("/") + "/api/v1/auth/me/"
-        ORDERS_SERVICE_URL = [string]$backendConfig.ORDERS_SERVICE_URL
+        INTERNAL_SERVICE_TOKEN = [string]$gatewayConfig.INTERNAL_SERVICE_TOKEN
+        AUTH_SERVICE_URL = ([string]$gatewayConfig.IDENTITY_SERVICE_URL).TrimEnd("/") + "/api/v1/auth/me/"
+        ORDERS_SERVICE_URL = [string]$gatewayConfig.ORDERS_SERVICE_URL
         SERVICE_TIMEOUT_SECONDS = 5
         PAYMENT_SIMULATOR_ENABLED = $true
     }
@@ -189,15 +189,15 @@ try {
         $env:PGPASSWORD = $originalPgPassword
     }
 
-    $backendConfig | Add-Member -NotePropertyName PAYMENTS_SERVICE_URL `
+    $gatewayConfig | Add-Member -NotePropertyName PAYMENTS_SERVICE_URL `
         -NotePropertyValue "http://127.0.0.1:8007/api/v1/payments" -Force
-    $backendConfig | Add-Member -NotePropertyName PAYMENTS_SERVICE_TIMEOUT_SECONDS `
+    $gatewayConfig | Add-Member -NotePropertyName PAYMENTS_SERVICE_TIMEOUT_SECONDS `
         -NotePropertyValue 10 -Force
-    $backendConfig |
+    $gatewayConfig |
         ConvertTo-Json -Depth 8 |
-        Set-Content -Path $backendConfigPath -Encoding utf8
+        Set-Content -Path $gatewayConfigPath -Encoding utf8
 
-    $python = Join-Path $repoRoot "backend\venv\Scripts\python.exe"
+    $python = Join-Path $repoRoot ".venv\Scripts\python.exe"
     if (-not (Test-Path $python)) {
         $pythonCommand = Get-Command python.exe -ErrorAction SilentlyContinue
         if (-not $pythonCommand) {
@@ -241,7 +241,7 @@ try {
 
     Write-Host "Base y rol del simulador preparados; migraciones de pedidos y pagos aplicadas."
     Write-Host "Configuración guardada fuera del repositorio en $paymentsConfigPath"
-    Write-Host "El backend apunta al simulador local en el puerto 8007."
+    Write-Host "El gateway apunta al simulador local en el puerto 8007."
 }
 finally {
     if ($adminPasswordPointer -ne [IntPtr]::Zero) {

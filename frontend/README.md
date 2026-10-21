@@ -378,7 +378,7 @@ export default defineConfig({ plugins: [react()] })
 
 **Logout desde el panel admin** — se usa `window.location.href = '/'` en lugar de `navigate()` de React Router. Esto hace una recarga completa que borra el historial acumulado del panel, evitando que el botón "Atrás" regrese a rutas protegidas después de cerrar sesión.
 
-**CarritoItems en backend** — cuando se conecte el backend, los campos `ancho_cm` y `alto_cm` se deben enviar en **milímetros enteros** (`valor_cm * 10`) por el índice único de la tabla `CarritoItems` en base de datos. En la lectura se divide entre 10 para mostrar en cm al usuario. El cálculo de `area_m2` no cambia visualmente.
+**CarritoItems en cart-service** — los campos `ancho_cm` y `alto_cm` se envían en **milímetros enteros** (`valor_cm * 10`) por el índice único de la tabla `CarritoItems` en base de datos. En la lectura se divide entre 10 para mostrar en cm al usuario. El cálculo de `area_m2` no cambia visualmente.
 
 **`react-is`** — dependencia peer de `recharts`, debe instalarse explícitamente o el panel admin falla al renderizar las gráficas:
 ```bash
@@ -393,12 +393,11 @@ Con el frontend, el gateway y los siete servicios iniciados localmente, ejecuta
 `.\run-e2e-local.ps1`. El script crea un administrador temporal, corre las
 pruebas Playwright de persistencia del carrito, checkout aprobado/rechazado y
 exclusión de pedidos rechazados en administración, envío del formulario y
-cierre del carrito, y elimina los datos
-asociados a esa ejecución. No inicia ni necesita el backend legacy.
+cierre del carrito, y elimina los datos asociados a esa ejecución.
 Para ejecutar solo algunos recorridos, pasa sus archivos con
 `.\run-e2e-local.ps1 -TestFiles @("e2e\contact-form.spec.js","e2e\customer-cart-persistence.spec.js")`.
 Las pruebas de checkout crean pedidos y, con SMTP real activado, generan correos
-reales; usa un backend de consola para esas pruebas automatizadas.
+reales; para pruebas automatizadas, configura un motor de correo de consola.
 
 `npm run lint` y `npm run build` validan el frontend de forma independiente.
 El servicio de notificaciones requiere SMTP configurado para entregar los

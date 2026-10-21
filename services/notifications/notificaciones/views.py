@@ -164,6 +164,37 @@ class PedidoApprovedNotificationView(APIView):
                 ),
             ),
         )
+        customer_notification, customer_duplicate = _send_order_email(
+            evento_id=f"pedido:{pedido_id}:payment-approved:customer",
+            pedido_id=pedido_id,
+            destinatario=data["cliente_email"],
+            subject=f"Pago confirmado para tu pedido #{pedido_id}",
+            message=(
+                f"Hola {data['cliente_nombre']},\n\n"
+                f"El pago de tu pedido #{pedido_id} fue confirmado.\n"
+                f"Total: ${data['total']:,.0f} COP\n\n"
+                f"Productos:\n{lines}\n\n"
+                "El pago fue aprobado por el simulador; no se realizó un cobro real."
+            ),
+            html_message=order_email_html(
+                title="¡Pago confirmado!",
+                intro=(
+                    f"Hola {data['cliente_nombre']}, hemos recibido correctamente "
+                    "el pago de tu pedido."
+                ),
+                order_id=pedido_id,
+                total=data["total"],
+                items=data["detalles"],
+                cta_label="Ver detalle de mi pedido",
+                cta_url=f"{settings.FRONTEND_URL}/mis-pedidos",
+                status_label="Pago confirmado",
+                recipient=data.get("nombre_recibe"),
+                address=data.get("direccion"),
+                notice=(
+                    "Pago aprobado por el simulador. No se realizó ningún cobro real."
+                ),
+            ),
+        )
 
         return Response(
             {
@@ -171,8 +202,9 @@ class PedidoApprovedNotificationView(APIView):
                 "pedido_id": admin_notification.pedido_id,
                 "estado": admin_notification.estado,
                 "admin_estado": admin_notification.estado,
+                "cliente_estado": customer_notification.estado,
                 "intentos": admin_notification.intentos,
-                "duplicate": admin_duplicate,
+                "duplicate": admin_duplicate and customer_duplicate,
             },
             status=status.HTTP_200_OK,
         )
