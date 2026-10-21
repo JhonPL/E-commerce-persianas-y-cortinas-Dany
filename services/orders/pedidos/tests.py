@@ -636,7 +636,17 @@ class InternalPaymentResultTests(APITestCase):
         self.notification_post = notification_patcher.start()
         self.addCleanup(notification_patcher.stop)
 
-    def test_internal_payment_result_updates_order_state(self):
+    @patch(
+        "pedidos.views.get_catalog_products",
+        return_value={
+            21: {
+                "nombre": "Cortina Blackout",
+                "descripcion": "Tela de bloqueo de luz",
+                "categoria_nombre": "Cortinas",
+            }
+        },
+    )
+    def test_internal_payment_result_updates_order_state(self, catalog_products):
         pdf_response = Mock(
             status_code=200,
             headers={
@@ -684,6 +694,13 @@ class InternalPaymentResultTests(APITestCase):
             ],
             "Cortina Blackout",
         )
+        invoice_item = self.notification_post.call_args_list[0].kwargs["json"]["detalles"][0]
+        self.assertEqual(invoice_item["categoria_nombre"], "Cortinas")
+        self.assertEqual(invoice_item["descripcion"], "Tela de bloqueo de luz")
+        self.assertEqual(
+            self.notification_post.call_args_list[0].kwargs["json"]["estado_pago"],
+            "Aprobado por el simulador; no se realizó un cobro real",
+        )
         notification_payload = self.notification_post.call_args_list[1].kwargs["json"]
         self.assertIn(
             "/api/internal/notificaciones/pedidos/",
@@ -691,6 +708,70 @@ class InternalPaymentResultTests(APITestCase):
         )
         self.assertEqual(notification_payload["numero_factura"], "DEMO-000001")
         self.assertEqual(notification_payload["pdf_base64"], "JVBERi1kZW1v")
+
+    @patch(
+        "pedidos.views.get_catalog_products",
+        return_value={
+            21: {
+                "nombre": "Cortina Blackout",
+                "descripcion": "Tela de bloqueo de luz",
+                "categoria_nombre": "Cortinas",
+            }
+        },
+    )
+    @patch("pedidos.views.requests.post")
+    def test_customer_can_download_invoice_only_after_payment_approval(
+        self,
+        billing_post,
+        catalog_products,
+    ):
+        self.order.estado = EstadoPedido.objects.create(
+            nombre="Pendiente de preparación",
+        )
+        self.order.save(update_fields=["estado"])
+        billing_post.return_value = Mock(
+            status_code=200,
+            headers={
+                "Content-Type": "application/pdf",
+                "X-Invoice-Number": "DEMO-000001",
+            },
+            content=b"%PDF-demo",
+            raise_for_status=Mock(),
+        )
+        self.client.force_authenticate(user=RemoteUser(17, "cliente"))
+
+        downloaded = self.client.get(
+            f"/api/v1/pedidos/{self.order.pk}/factura/",
+        )
+
+        self.assertEqual(downloaded.status_code, 200)
+        self.assertEqual(downloaded["Content-Type"], "application/pdf")
+        self.assertEqual(downloaded["Cache-Control"], "private, no-store")
+        self.assertEqual(downloaded.content, b"%PDF-demo")
+        billing_payload = billing_post.call_args.kwargs["json"]
+        self.assertEqual(
+            billing_payload["detalles"][0]["categoria_nombre"],
+            "Cortinas",
+        )
+
+    @patch("pedidos.views.requests.post")
+    def test_customer_cannot_download_another_users_or_unpaid_invoice(self, billing_post):
+        self.client.force_authenticate(user=RemoteUser(99, "cliente"))
+        other_users_order = self.client.get(
+            f"/api/v1/pedidos/{self.order.pk}/factura/",
+        )
+
+        self.client.force_authenticate(user=RemoteUser(17, "cliente"))
+        pending_payment = EstadoPedido.objects.create(nombre="Pendiente de pago")
+        self.order.estado = pending_payment
+        self.order.save(update_fields=["estado"])
+        unpaid_order = self.client.get(
+            f"/api/v1/pedidos/{self.order.pk}/factura/",
+        )
+
+        self.assertEqual(other_users_order.status_code, 404)
+        self.assertEqual(unpaid_order.status_code, 409)
+        billing_post.assert_not_called()
 
     def test_expired_unpaid_order_is_rejected_and_customer_is_notified(self):
         self.order.fecha_pedido = timezone.now() - timedelta(minutes=5, seconds=1)

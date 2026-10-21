@@ -186,7 +186,9 @@ class NotificationApiTests(APITestCase):
             if isinstance(attachment, tuple)
             and attachment[2] == "application/pdf"
         ]
-        self.assertEqual(admin_pdf_attachments, [])
+        self.assertEqual(len(admin_pdf_attachments), 1)
+        self.assertEqual(admin_pdf_attachments[0][0], "DEMO-000041.pdf")
+        self.assertEqual(admin_pdf_attachments[0][1], b"%PDF-1.4 demo")
 
     def test_retry_after_success_is_idempotent(self):
         first = self._post()

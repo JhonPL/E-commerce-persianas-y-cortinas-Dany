@@ -33,6 +33,11 @@ vencidos.
   rechaza.
 - El aviso inicial confirma la recepción únicamente al cliente. El administrador
   recibe los detalles del pedido solo tras la aprobación simulada.
+- Tras aprobarse el pago, el PDF académico se genera desde los datos guardados,
+  se adjunta a ambos correos y se puede descargar desde `Mis pedidos`. La ruta
+  de descarga comprueba en Django que el pedido pertenece al cliente autenticado
+  (o que quien consulta es administrador); los pedidos pendientes/rechazados no
+  permiten descargarlo.
 - Los pedidos sin pago no aparecen en la cola de administración ni se cuentan
   como ventas.
 - Los estados posteriores a la aprobación avanzan de “Pendiente de preparación”

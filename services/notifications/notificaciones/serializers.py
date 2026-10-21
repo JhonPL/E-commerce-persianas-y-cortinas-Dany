@@ -8,6 +8,12 @@ from rest_framework import serializers
 class PedidoDetalleNotificationSerializer(serializers.Serializer):
     producto_id = serializers.IntegerField(min_value=1)
     producto_nombre = serializers.CharField(max_length=150)
+    categoria_nombre = serializers.CharField(
+        max_length=100,
+        required=False,
+        allow_blank=True,
+    )
+    descripcion = serializers.CharField(required=False, allow_blank=True)
     cantidad = serializers.IntegerField(min_value=1)
     ancho_cm = serializers.DecimalField(
         max_digits=8,

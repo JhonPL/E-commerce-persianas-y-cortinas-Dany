@@ -4,6 +4,7 @@ import { AlertCircle, CheckCircle2, CreditCard, LoaderCircle, ShieldCheck } from
 import { useAuth } from '../../context/AuthContext'
 import { useCart } from '../../context/CartContext'
 import { API_URL } from '../../config/api'
+import { downloadOrderInvoice } from '../../api/invoices'
 import colombiaLocations from '../../data/colombiaLocations.json'
 import styles from './Checkout.module.css'
 
@@ -65,6 +66,8 @@ export default function Checkout() {
   const [order, setOrder] = useState(null)
   const [payment, setPayment] = useState(null)
   const [error, setError] = useState('')
+  const [invoiceError, setInvoiceError] = useState('')
+  const [downloadingInvoice, setDownloadingInvoice] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
   const updateAddress = (event) => {
@@ -88,6 +91,18 @@ export default function Checkout() {
       nextValue = value.replace(/\D/g, '').slice(0, 3)
     }
     setCard((current) => ({ ...current, [name]: nextValue }))
+  }
+
+  const downloadInvoice = async () => {
+    setDownloadingInvoice(true)
+    setInvoiceError('')
+    try {
+      await downloadOrderInvoice(authenticatedFetch, payment.pedido_id)
+    } catch (downloadError) {
+      setInvoiceError(downloadError.message)
+    } finally {
+      setDownloadingInvoice(false)
+    }
   }
 
   const handleSubmit = async (event) => {
@@ -160,9 +175,18 @@ export default function Checkout() {
           </p>
           <p className={styles.notice}>
             {payment.notification === 'enviado'
-              ? 'El comprobante PDF de demostración fue enviado al correo de tu cuenta.'
-              : 'El pago quedó aprobado, pero no se pudo confirmar el envío del comprobante. Contacta al negocio.'}
+              ? 'La factura PDF de demostración fue enviada al correo de tu cuenta y al administrador.'
+              : 'El pago quedó aprobado, pero no se pudo confirmar el envío del correo. Puedes intentar descargar el PDF aquí.'}
           </p>
+          <button
+            className={styles.secondaryButton}
+            type="button"
+            onClick={downloadInvoice}
+            disabled={downloadingInvoice}
+          >
+            {downloadingInvoice ? 'Generando PDF…' : 'Descargar factura PDF'}
+          </button>
+          {invoiceError && <p className={styles.errorMessage} role="alert">{invoiceError}</p>}
           <Link className={styles.primaryButton} to="/mis-pedidos">
             Ver mis pedidos
           </Link>

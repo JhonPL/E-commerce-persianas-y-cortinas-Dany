@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { Package, ChevronDown, ChevronUp, ShoppingBag, MapPin } from 'lucide-react'
+import { Package, ChevronDown, ChevronUp, ShoppingBag, MapPin, Download, LoaderCircle } from 'lucide-react'
 import { API_URL } from '../../config/api'
+import { downloadOrderInvoice } from '../../api/invoices'
 import styles from './MisPedidos.module.css'
 
 
@@ -44,8 +45,27 @@ function BarraProgreso({ estadoNombre }) {
 }
 
 /* ── Tarjeta de un pedido ─────────────────────────────────── */
-function TarjetaPedido({ pedido }) {
+function TarjetaPedido({ pedido, authenticatedFetch }) {
   const [abierto, setAbierto] = useState(false)
+  const [descargando, setDescargando] = useState(false)
+  const [errorFactura, setErrorFactura] = useState('')
+  const facturaDisponible = [
+    'Pendiente de preparación',
+    'Preparado',
+    'Enviado',
+  ].includes(pedido.estado_nombre)
+
+  const descargarFactura = async () => {
+    setDescargando(true)
+    setErrorFactura('')
+    try {
+      await downloadOrderInvoice(authenticatedFetch, pedido.pedido_id)
+    } catch (error) {
+      setErrorFactura(error.message)
+    } finally {
+      setDescargando(false)
+    }
+  }
 
   const fecha = new Date(pedido.fecha_pedido).toLocaleDateString('es-CO', {
     year: 'numeric', month: 'long', day: 'numeric',
@@ -135,6 +155,22 @@ function TarjetaPedido({ pedido }) {
             <span>Total del pedido</span>
             <strong>${parseFloat(pedido.total).toLocaleString('es-CO')}</strong>
           </div>
+          {facturaDisponible && (
+            <div className={styles.factura}>
+              <p>Factura de demostración disponible. El pago fue aprobado por el simulador.</p>
+              <button
+                className={styles.descargar}
+                type="button"
+                onClick={descargarFactura}
+                disabled={descargando}
+              >
+                {descargando
+                  ? <><LoaderCircle size={16} className={styles.descargandoIcono} /> Generando PDF…</>
+                  : <><Download size={16} /> Descargar factura PDF</>}
+              </button>
+              {errorFactura && <p className={styles.errorFactura} role="alert">{errorFactura}</p>}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -217,7 +253,11 @@ export default function MisPedidos() {
       </p>
       <div className={styles.lista}>
         {pedidos.map(p => (
-          <TarjetaPedido key={p.pedido_id} pedido={p} />
+          <TarjetaPedido
+            key={p.pedido_id}
+            pedido={p}
+            authenticatedFetch={authenticatedFetch}
+          />
         ))}
       </div>
     </main>

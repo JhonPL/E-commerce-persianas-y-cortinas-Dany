@@ -7,6 +7,10 @@ from pedidos import views
 urlpatterns = [
     path("api/v1/pedidos/checkout/", views.checkout),
     path("api/v1/pedidos/", views.mis_pedidos),
+    path(
+        "api/v1/pedidos/<int:pedido_id>/factura/",
+        views.descargar_factura,
+    ),
     path("api/v1/pedidos/<int:pedido_id>/", views.detalle_pedido),
     path("api/v1/admin/pedidos/", views.admin_pedidos_list),
     path(

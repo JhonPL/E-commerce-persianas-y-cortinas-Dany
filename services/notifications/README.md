@@ -29,8 +29,9 @@ manualmente:
   responder al correo del cliente.
 - Crear un pedido pendiente no envía correos.
 - Cuando el simulador aprueba el pago, el administrador recibe un único correo
-  «Nuevo pedido recibido» con los datos completos del pedido, y el cliente
-  recibe su correo de pago confirmado.
+  «Nuevo pedido recibido» con los datos de contacto, entrega, productos y el
+  PDF de demostración adjunto; el cliente recibe el PDF y la confirmación del
+  pago simulado.
 - Los cambios de estado y vencimientos de pago se notifican al cliente. Estos
   avisos se mantienen independientes del correo de pago confirmado.
 - Los eventos se identifican de forma idempotente por destinatario para evitar

@@ -8,6 +8,7 @@ from django.conf import settings
 from django.db import transaction
 from django.db.models import Q, Sum
 from django.db.models.functions import TruncMonth
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import serializers, status
@@ -24,7 +25,7 @@ from .authentication import (
     InternalServiceTokenAuthentication,
     is_admin,
 )
-from .catalog import get_catalog_products
+from .catalog import CatalogServiceUnavailable, get_catalog_products
 from .models import (
     Ciudad,
     Departamento,
@@ -141,10 +142,20 @@ def _calculate_checkout_items(items):
 
 
 def _approved_order_payload(order):
+    catalog_products = get_catalog_products(
+        detail.producto for detail in order.detalles.all()
+    )
     return {
         "pedido_id": order.pedido_id,
         "cliente_nombre": order.cliente_nombre,
         "cliente_email": order.cliente_email,
+        "estado_pedido": order.estado.nombre,
+        "estado_pago": (
+            "Aprobado por el simulador; no se realizó un cobro real"
+        ),
+        "metodo_pago": "Tarjeta de prueba (simulación)",
+        "importe_pagado": str(order.total),
+        "saldo_pendiente": "0.00",
         "nombre_recibe": order.direccion.nombre_recibe,
         "direccion": ", ".join(
             part
@@ -157,10 +168,19 @@ def _approved_order_payload(order):
             if part
         ),
         "total": str(order.total),
+        "observaciones": order.notas or "",
         "detalles": [
             {
                 "producto_id": item.producto,
                 "producto_nombre": item.producto_nombre,
+                "categoria_nombre": catalog_products[item.producto].get(
+                    "categoria_nombre",
+                    "",
+                ),
+                "descripcion": catalog_products[item.producto].get(
+                    "descripcion",
+                    "",
+                ) or "",
                 "cantidad": item.cantidad,
                 "ancho_cm": str(item.ancho_cm),
                 "alto_cm": str(item.alto_cm),
@@ -171,7 +191,7 @@ def _approved_order_payload(order):
     }
 
 
-def _generate_demo_invoice(order):
+def _generate_demo_invoice(order, payload=None):
     token = settings.INTERNAL_SERVICE_TOKEN
     if not token:
         logger.error(
@@ -186,7 +206,7 @@ def _generate_demo_invoice(order):
                 f"{settings.BILLING_SERVICE_URL}"
                 "/api/internal/facturas/demo-pdf/"
             ),
-            json=_approved_order_payload(order),
+            json=payload if payload is not None else _approved_order_payload(order),
             headers={"X-Internal-Service-Token": token},
             timeout=settings.SERVICE_TIMEOUT_SECONDS,
         )
@@ -197,6 +217,12 @@ def _generate_demo_invoice(order):
             or not response.content.startswith(b"%PDF-")
         ):
             raise ValueError("Billing devolvió un comprobante PDF inválido.")
+    except CatalogServiceUnavailable:
+        logger.exception(
+            "Order %s was paid but its catalog details could not be loaded.",
+            order.pedido_id,
+        )
+        return None
     except (requests.RequestException, ValueError):
         logger.exception(
             "Order %s was paid but its demo invoice could not be generated.",
@@ -213,11 +239,48 @@ def _generate_demo_invoice(order):
     }
 
 
-def _notify_payment_approved(order):
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def descargar_factura(request, pedido_id):
+    if is_admin(request.user):
+        order = get_object_or_404(_order_queryset(), pedido_id=pedido_id)
+    elif getattr(request.user, "rol_nombre", None) == "cliente":
+        order = get_object_or_404(
+            _order_queryset(),
+            pedido_id=pedido_id,
+            usuario=request.user.usuario_id,
+        )
+    else:
+        return Response(
+            {"detail": "No tienes permiso para descargar este documento."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    if order.estado.nombre not in FULFILLMENT_STATES:
+        return Response(
+            {"detail": "El documento estará disponible cuando el pago sea aprobado."},
+            status=status.HTTP_409_CONFLICT,
+        )
+
     invoice = _generate_demo_invoice(order)
     if not invoice:
-        return "fallido"
+        return Response(
+            {"detail": "No fue posible generar el documento. Inténtalo más tarde."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
 
+    response = HttpResponse(
+        base64.b64decode(invoice["pdf_base64"], validate=True),
+        content_type="application/pdf",
+    )
+    response["Content-Disposition"] = (
+        f'attachment; filename="{invoice["numero_factura"]}.pdf"'
+    )
+    response["Cache-Control"] = "private, no-store"
+    return response
+
+
+def _notify_payment_approved(order):
     token = settings.INTERNAL_SERVICE_TOKEN
     if not token:
         logger.error(
@@ -226,7 +289,19 @@ def _notify_payment_approved(order):
         )
         return "fallido"
 
-    payload = _approved_order_payload(order)
+    try:
+        payload = _approved_order_payload(order)
+    except CatalogServiceUnavailable:
+        logger.exception(
+            "Order %s was paid but its catalog details could not be loaded.",
+            order.pedido_id,
+        )
+        return "fallido"
+
+    invoice = _generate_demo_invoice(order, payload)
+    if not invoice:
+        return "fallido"
+
     payload.update(invoice)
     try:
         response = requests.post(

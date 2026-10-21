@@ -1,3 +1,5 @@
+import hashlib
+
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
 from django.utils import timezone
@@ -36,6 +38,9 @@ class DemoInvoicePdfView(APIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
         invoice_number = f"DEMO-{data['pedido_id']:06d}"
+        demo_cufe = "DEMO-NO-FISCAL-" + hashlib.sha256(
+            f"ACADEMIC-DEMO|{invoice_number}|{data['pedido_id']}".encode("utf-8")
+        ).hexdigest().upper()
         details = [
             {
                 **item,
@@ -49,7 +54,7 @@ class DemoInvoicePdfView(APIView):
             pedido_id=data["pedido_id"],
             defaults={
                 "numero_factura": invoice_number,
-                "cufe": None,
+                "cufe": demo_cufe,
                 "cliente_nombre": data["cliente_nombre"],
                 "cliente_email": data["cliente_email"],
                 "direccion": data["direccion"],
@@ -68,11 +73,15 @@ class DemoInvoicePdfView(APIView):
                 {"detail": "El pedido ya tiene un comprobante con otros datos."},
                 status=status.HTTP_409_CONFLICT,
             )
+        if not invoice.cufe:
+            invoice.cufe = demo_cufe
+            invoice.save(update_fields=["cufe"])
 
         pdf = build_demo_invoice_pdf(
             invoice_number=invoice.numero_factura,
             issued_at=invoice.fecha_emision or timezone.now(),
             data=data,
+            cufe=demo_cufe,
         )
         response = HttpResponse(pdf, content_type="application/pdf")
         response["Content-Disposition"] = (

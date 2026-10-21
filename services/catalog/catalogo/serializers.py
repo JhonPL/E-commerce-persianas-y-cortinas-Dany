@@ -24,6 +24,7 @@ class ProductoListSerializer(serializers.ModelSerializer):
         fields = [
             "producto_id",
             "nombre",
+            "descripcion",
             "precio_m2",
             "categoria",
             "categoria_nombre",

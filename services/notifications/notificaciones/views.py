@@ -130,8 +130,14 @@ class PedidoApprovedNotificationView(APIView):
         lines = "\n".join(
             (
                 f"- {item['producto_nombre']} (producto #{item['producto_id']}): "
+                f"{item.get('categoria_nombre') or 'Categoría no especificada'}; "
                 f"{item['cantidad']} unidad(es), {item['ancho_cm']} × "
                 f"{item['alto_cm']} cm, ${item['precio_total']:,.0f} COP"
+                + (
+                    f"; {item['descripcion']}"
+                    if item.get("descripcion")
+                    else ""
+                )
             )
             for item in data["detalles"]
         )
@@ -144,6 +150,9 @@ class PedidoApprovedNotificationView(APIView):
                 "Nuevo pedido recibido: el pago fue aprobado.\n\n"
                 f"Pedido ID: {pedido_id}\n"
                 f"Cliente: {data['cliente_nombre']} ({data['cliente_email']})\n"
+                f"Recibe: {data.get('nombre_recibe') or 'No especificado'}\n"
+                f"Dirección de entrega: {data.get('direccion') or 'No especificada'}\n"
+                "Estado del pago: aprobado por el simulador, sin cobro real.\n"
                 f"Total: ${data['total']:,.0f} COP\n\n"
                 f"Productos:\n{lines}\n\n"
                 "El pago fue aprobado por el simulador; no se realizó un cobro real.\n"
@@ -167,6 +176,13 @@ class PedidoApprovedNotificationView(APIView):
                     "Pago aprobado por el simulador; no se realizó ningún cobro real."
                 ),
             ),
+            attachments=[
+                (
+                    f"{data['numero_factura']}.pdf",
+                    invoice_pdf,
+                    "application/pdf",
+                )
+            ],
         )
         customer_notification, customer_duplicate = _send_order_email(
             evento_id=f"pedido:{pedido_id}:payment-approved:customer",
