@@ -21,6 +21,17 @@ INSTALLED_APPS = [
     "facturacion",
 ]
 
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [],
+        },
+    },
+]
+
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -69,15 +80,15 @@ SPECTACULAR_SETTINGS = {
 }
 
 INTERNAL_SERVICE_TOKEN = env("INTERNAL_SERVICE_TOKEN", default="")
-INVOICE_ISSUER_ADDRESS = env(
-    "INVOICE_ISSUER_ADDRESS",
-    default="",
+INVOICE_ISSUER_ADDRESS = env("INVOICE_ISSUER_ADDRESS", default="") or (
+    "Cra. 13 # 20 - 52, Granada, Meta"
 )
-INVOICE_ISSUER_PHONE = env(
-    "INVOICE_ISSUER_PHONE",
-    default="",
+INVOICE_ISSUER_PHONE = env("INVOICE_ISSUER_PHONE", default="") or "312 355 8218"
+INVOICE_ISSUER_EMAIL = env("INVOICE_ISSUER_EMAIL", default="") or (
+    "percortinasdany@gmail.com"
 )
-INVOICE_ISSUER_EMAIL = env(
-    "INVOICE_ISSUER_EMAIL",
+INVOICE_ISSUER_NIT = env("INVOICE_ISSUER_NIT", default="") or "1.122.507.213-3"
+INVOICE_ISSUER_WEBSITE = env(
+    "INVOICE_ISSUER_WEBSITE",
     default="",
 )

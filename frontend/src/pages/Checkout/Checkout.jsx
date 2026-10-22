@@ -178,18 +178,20 @@ export default function Checkout() {
               ? 'La factura PDF de demostración fue enviada al correo de tu cuenta y al administrador.'
               : 'El pago quedó aprobado, pero no se pudo confirmar el envío del correo. Puedes intentar descargar el PDF aquí.'}
           </p>
-          <button
-            className={styles.secondaryButton}
-            type="button"
-            onClick={downloadInvoice}
-            disabled={downloadingInvoice}
-          >
-            {downloadingInvoice ? 'Generando PDF…' : 'Descargar factura PDF'}
-          </button>
+          <div className={styles.resultActions}>
+            <button
+              className={styles.secondaryButton}
+              type="button"
+              onClick={downloadInvoice}
+              disabled={downloadingInvoice}
+            >
+              {downloadingInvoice ? 'Generando PDF…' : 'Descargar factura PDF'}
+            </button>
+            <Link className={styles.primaryButton} to="/mis-pedidos">
+              Ver mis pedidos
+            </Link>
+          </div>
           {invoiceError && <p className={styles.errorMessage} role="alert">{invoiceError}</p>}
-          <Link className={styles.primaryButton} to="/mis-pedidos">
-            Ver mis pedidos
-          </Link>
         </section>
       </main>
     )

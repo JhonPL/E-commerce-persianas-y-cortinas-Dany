@@ -15,6 +15,80 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from .models import NotificacionAdmin
+from notification_service.local_config import (
+    apply_local_settings,
+    load_local_settings,
+)
+
+
+class LocalNotificationSettingsTests(APITestCase):
+    def test_loads_local_settings_without_exposing_them(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_path = (
+                Path(temp_dir)
+                / "CortinasPersianas"
+                / "config"
+                / "notifications.json"
+            )
+            config_path.parent.mkdir(parents=True)
+            config_path.write_text(
+                json.dumps({
+                    "EMAIL_HOST_PASSWORD": "test-app-password",
+                    "EMAIL_HOST_USER": "sender@example.test",
+                }),
+                encoding="utf-8",
+            )
+
+            config = load_local_settings(temp_dir)
+
+        self.assertEqual(
+            config,
+            {
+                "EMAIL_HOST_PASSWORD": "test-app-password",
+                "EMAIL_HOST_USER": "sender@example.test",
+            },
+        )
+
+    def test_missing_local_settings_are_optional(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            self.assertEqual(load_local_settings(temp_dir), {})
+
+    def test_local_settings_fill_empty_values_but_preserve_environment(self):
+        environment = {
+            "EMAIL_HOST_PASSWORD": "",
+            "EMAIL_HOST_USER": "environment@example.test",
+        }
+
+        apply_local_settings(
+            {
+                "EMAIL_HOST_PASSWORD": "test-app-password",
+                "EMAIL_HOST_USER": "local@example.test",
+            },
+            environment,
+        )
+
+        self.assertEqual(environment["EMAIL_HOST_PASSWORD"], "test-app-password")
+        self.assertEqual(
+            environment["EMAIL_HOST_USER"],
+            "environment@example.test",
+        )
+
+    def test_invalid_local_settings_raise_a_clear_error(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_path = (
+                Path(temp_dir)
+                / "CortinasPersianas"
+                / "config"
+                / "notifications.json"
+            )
+            config_path.parent.mkdir(parents=True)
+            config_path.write_text("{invalid", encoding="utf-8")
+
+            with self.assertRaisesMessage(
+                RuntimeError,
+                "No se pudo leer la configuración local de notificaciones.",
+            ):
+                load_local_settings(temp_dir)
 
 
 @override_settings(

@@ -1,5 +1,6 @@
-from rest_framework import serializers
 from decimal import Decimal
+
+from rest_framework import serializers
 
 from .models import Factura
 
@@ -16,6 +17,9 @@ class DemoInvoiceDetailSerializer(serializers.Serializer):
         required=False,
         allow_blank=True,
     )
+    material = serializers.CharField(required=False, allow_blank=True)
+    color = serializers.CharField(required=False, allow_blank=True)
+    tipo_instalacion = serializers.CharField(required=False, allow_blank=True)
     cantidad = serializers.IntegerField(min_value=1)
     ancho_cm = serializers.DecimalField(max_digits=8, decimal_places=2, min_value=Decimal("0.01"))
     alto_cm = serializers.DecimalField(max_digits=8, decimal_places=2, min_value=Decimal("0.01"))
@@ -58,6 +62,7 @@ class DemoInvoiceSerializer(serializers.Serializer):
         min_value=Decimal("0.00"),
         required=False,
     )
+    fecha_vencimiento = serializers.DateField(required=False, allow_null=True)
     total = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal("0.00"))
     detalles = DemoInvoiceDetailSerializer(many=True, allow_empty=False)
 

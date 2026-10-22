@@ -14,6 +14,9 @@ correo. El cliente recibe notificaciones en la dirección asociada a su pedido.
 En Gmail se necesita una contraseña de aplicación. Guárdala solo en
 `%LOCALAPPDATA%\CortinasPersianas\config\notifications.json` o en el gestor de
 secretos del entorno; nunca en el repositorio.
+Al iniciar el servicio, los valores del archivo JSON se cargan como valores
+predeterminados; las variables del proceso y `.env` tienen prioridad. Reinicia
+el servicio de notificaciones después de cambiar esta configuración.
 
 Desde la raíz, el entorno Python compartido es `.venv`. Para iniciar
 manualmente:

@@ -2,6 +2,8 @@ from pathlib import Path
 
 import environ
 
+from .local_config import apply_local_settings, load_local_settings
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env(
@@ -11,6 +13,8 @@ env = environ.Env(
     EMAIL_USE_TLS=(bool, True),
 )
 environ.Env.read_env(BASE_DIR / ".env")
+LOCAL_SETTINGS = load_local_settings()
+apply_local_settings(LOCAL_SETTINGS)
 
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 DEBUG = env("DJANGO_DEBUG")

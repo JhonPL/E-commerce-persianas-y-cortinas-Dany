@@ -233,9 +233,13 @@
   color: #f59e0b;
 }
 
-.resultCard .primaryButton,
-.resultCard .secondaryButton {
-  margin-top: 12px;
+.resultActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 20px;
 }
 
 @media (max-width: 760px) {

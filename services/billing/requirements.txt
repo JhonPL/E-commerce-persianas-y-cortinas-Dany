@@ -3,4 +3,5 @@ django-environ==0.13.0
 djangorestframework==3.16.1
 drf-spectacular==0.29.0
 psycopg2-binary==2.9.11
-reportlab==4.5.1
+WeasyPrint==70.0
+qrcode==8.2

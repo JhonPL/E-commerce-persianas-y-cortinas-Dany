@@ -1,16 +1,17 @@
 import hashlib
 
-from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .invoice_data import build_invoice_context
 from .models import Factura
 from .permissions import EsServicioInterno
-from .pdf import build_demo_invoice_pdf
+from .pdf import render_invoice_pdf
 from .serializers import DemoInvoiceSerializer, FacturaSerializer
 
 
@@ -77,12 +78,12 @@ class DemoInvoicePdfView(APIView):
             invoice.cufe = demo_cufe
             invoice.save(update_fields=["cufe"])
 
-        pdf = build_demo_invoice_pdf(
-            invoice_number=invoice.numero_factura,
+        context = build_invoice_context(
+            invoice=invoice,
             issued_at=invoice.fecha_emision or timezone.now(),
             data=data,
-            cufe=demo_cufe,
         )
+        pdf = render_invoice_pdf(context)
         response = HttpResponse(pdf, content_type="application/pdf")
         response["Content-Disposition"] = (
             f'attachment; filename="{invoice.numero_factura}.pdf"'
