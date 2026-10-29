@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Plus, Pencil, Trash2, X, Check, Search, Tag } from 'lucide-react'
 import { API_URL } from '../config/api'
-import styles from './AdminCategorias.module.css'
+import styles from './Admincategorias.module.css'
 
 function getToken() {
   return localStorage.getItem('token') || ''
