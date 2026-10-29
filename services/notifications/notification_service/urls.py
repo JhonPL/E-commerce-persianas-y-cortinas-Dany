@@ -5,10 +5,16 @@ from notificaciones.views import (
     ContactMessageNotificationView,
     PedidoApprovedNotificationView,
     PedidoStatusChangedNotificationView,
+    email_logo,
 )
+from notificaciones.health import live as health_live
+from notificaciones.health import ready as health_ready
 
 
 urlpatterns = [
+    path("health/live/", health_live),
+    path("health/ready/", health_ready),
+    path("email-assets/logogreen.png", email_logo),
     path(
         "api/internal/notificaciones/pedidos/",
         PedidoApprovedNotificationView.as_view(),

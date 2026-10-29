@@ -50,6 +50,7 @@ DATABASES = {
         "HOST": env("BILLING_DB_HOST"),
         "PORT": env("BILLING_DB_PORT", default="5432"),
         "OPTIONS": {
+            "sslmode": env("DATABASE_SSLMODE", default="prefer"),
             "options": "-c timezone=America/Bogota",
         },
     }

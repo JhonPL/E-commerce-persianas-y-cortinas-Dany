@@ -14,6 +14,8 @@ from gateway.proxies import (
     OrdersServiceProxy,
     PaymentsServiceProxy,
 )
+from gateway.health import live as health_live
+from gateway.health import ready as health_ready
 
 
 def health(request):
@@ -31,6 +33,8 @@ def catalog_product(request, product_id):
 
 urlpatterns = [
     path("health/", health),
+    path("health/live/", health_live),
+    path("health/ready/", health_ready),
     path("api/v1/contacto/", contact_notification),
     path(
         "api/v1/auth/",

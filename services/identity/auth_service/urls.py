@@ -2,10 +2,14 @@ from django.urls import path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework_simplejwt.views import TokenRefreshView
 
+from usuarios.health import live as health_live
+from usuarios.health import ready as health_ready
 from usuarios import views
 
 
 urlpatterns = [
+    path("health/live/", health_live),
+    path("health/ready/", health_ready),
     path("api/v1/auth/registro/", views.RegistroView.as_view()),
     path("api/v1/auth/login/", views.LoginView.as_view()),
     path("api/v1/auth/google/", views.GoogleAuthView.as_view()),

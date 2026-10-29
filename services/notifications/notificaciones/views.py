@@ -3,11 +3,13 @@ import logging
 import smtplib
 import socket
 from datetime import timedelta
+from pathlib import Path
 
 from django.conf import settings
 from django.core.mail import EmailMessage
 from django.db import transaction
 from django.db.models import F
+from django.http import FileResponse
 from django.utils import timezone
 from django.utils.html import escape
 from rest_framework import status
@@ -25,6 +27,14 @@ from .serializers import (
 
 
 logger = logging.getLogger(__name__)
+
+
+def email_logo(request):
+    logo_path = Path(__file__).resolve().parent / "assets" / "logogreen.png"
+    response = FileResponse(logo_path.open("rb"), content_type="image/png")
+    response["Cache-Control"] = "public, max-age=86400"
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 def _admin_recipient():

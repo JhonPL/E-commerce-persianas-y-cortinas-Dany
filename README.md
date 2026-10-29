@@ -27,6 +27,9 @@ ver los servicios, los flujos principales y los límites de datos.
 El archivo [microservicios-plantuml.txt](./microservicios-plantuml.txt) contiene
 código PlantUML para diagramas de secuencia, casos de uso, clases, componentes
 y despliegue.
+El [plan de despliegue demostrativo](./plan-despliegue-demostrativo.md) describe
+la arquitectura cloud temporal, el envío de correo, la activación de servicios
+dormidos y la lista de verificación para la exposición.
 
 ## Requisitos locales
 
@@ -63,10 +66,34 @@ cinco minutos, el gateway y el frontend:
 .\run-local.ps1
 ```
 
-automáticamente al arrancar.
 Abre `http://localhost:5173`. Mantén abiertas las ventanas de terminales que
 inició el script. Las migraciones de pedidos y facturación se aplican
 automáticamente al arrancar.
+
+## Preparación de imágenes para la demo cloud
+
+Con Docker Desktop en modo Linux y el motor iniciado, construye las ocho
+imágenes independientes desde la raíz del proyecto:
+
+```powershell
+.\deploy\build-images.ps1
+```
+
+El gateway y seis servicios usan `deploy\Dockerfile`; facturación usa
+`deploy\Dockerfile.billing` por sus dependencias nativas de PDF. El script
+detiene el proceso si falla la construcción de cualquier imagen.
+
+Antes de una exposición, `scripts\warm-demo.ps1` consulta en paralelo el
+frontend y los ocho endpoints públicos de salud. Pasa las URLs HTTPS con los
+parámetros requeridos del script; termina con error si algún componente no
+responde `200` dentro del tiempo límite. Las imágenes y la activación de
+servicios no crean recursos cloud por sí mismas.
+
+Para Render Free se usa Brevo por HTTPS, ya que el plan bloquea SMTP saliente.
+La expiración de pedidos se activa con un scheduler externo que envía el token
+dedicado a `POST /api/internal/pedidos/expire-unpaid-orders/`; no reutilices
+`INTERNAL_SERVICE_TOKEN`. Consulta el [plan de despliegue demostrativo](./plan-despliegue-demostrativo.md)
+para los límites, configuración y apagado de Render.
 
 ## Pruebas
 

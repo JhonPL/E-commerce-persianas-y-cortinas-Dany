@@ -13,6 +13,7 @@ LIGHT_GREEN = "#eef5e6"
 CREAM = "#f5f2e9"
 DARK = "#10211b"
 LOGO_CID = "brand-logo"
+BREVO_EMAIL_BACKEND = "notificaciones.brevo_email_backend.BrevoEmailBackend"
 
 
 def _text(value):
@@ -36,8 +37,19 @@ def _button(label, url):
 
 
 def _header():
+    if settings.EMAIL_BACKEND == BREVO_EMAIL_BACKEND:
+        if not settings.NOTIFICATIONS_PUBLIC_URL:
+            raise smtplib.SMTPException(
+                "NOTIFICATIONS_PUBLIC_URL is required for Brevo email delivery."
+            )
+        logo_source = (
+            f"{settings.NOTIFICATIONS_PUBLIC_URL}/email-assets/logogreen.png"
+        )
+    else:
+        logo_source = f"cid:{LOGO_CID}"
+
     logo = (
-        f'<img src="cid:{LOGO_CID}" width="62" height="62" alt="Persianas &amp; '
+        f'<img src="{logo_source}" width="62" height="62" alt="Persianas &amp; '
         'Cortinas Dany" style="display:block;width:62px;height:62px;'
         'border-radius:50%">'
     )
@@ -246,11 +258,16 @@ def send_order_email(
     logo_path = (
         Path(__file__).resolve().parent / "assets" / "logogreen.png"
     )
-    with logo_path.open("rb") as logo_file:
-        logo = MIMEImage(logo_file.read(), _subtype="png")
-    logo.add_header("Content-ID", f"<{LOGO_CID}>")
-    logo.add_header("Content-Disposition", "inline", filename="logogreen.png")
-    email.attach(logo)
+    if settings.EMAIL_BACKEND != BREVO_EMAIL_BACKEND:
+        with logo_path.open("rb") as logo_file:
+            logo = MIMEImage(logo_file.read(), _subtype="png")
+        logo.add_header("Content-ID", f"<{LOGO_CID}>")
+        logo.add_header(
+            "Content-Disposition",
+            "inline",
+            filename="logogreen.png",
+        )
+        email.attach(logo)
     sent_count = email.send(fail_silently=False)
     if sent_count != 1:
         raise smtplib.SMTPException("El servidor de correo no confirmó el envío.")

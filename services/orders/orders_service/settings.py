@@ -39,6 +39,7 @@ DATABASES = {
         "HOST": env("ORDERS_DB_HOST"),
         "PORT": env("ORDERS_DB_PORT", default="5432"),
         "OPTIONS": {
+            "sslmode": env("DATABASE_SSLMODE", default="prefer"),
             "options": "-c timezone=America/Bogota",
         },
     }
@@ -84,3 +85,4 @@ BILLING_SERVICE_URL = env(
 ).rstrip("/")
 SERVICE_TIMEOUT_SECONDS = env.int("SERVICE_TIMEOUT_SECONDS", default=5)
 INTERNAL_SERVICE_TOKEN = env("INTERNAL_SERVICE_TOKEN", default="")
+EXPIRATION_JOB_TOKEN = env("EXPIRATION_JOB_TOKEN", default="")

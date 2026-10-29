@@ -1,4 +1,5 @@
 import base64
+import hmac
 import logging
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
@@ -18,7 +19,7 @@ from rest_framework.decorators import (
     permission_classes,
 )
 from rest_framework.exceptions import AuthenticationFailed, ValidationError
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from .authentication import (
@@ -448,6 +449,27 @@ def _expire_due_unpaid_orders(now=None):
         _expire_unpaid_order(order_id, now=now) is not None
         for order_id in expired_ids
     )
+
+
+@api_view(["POST"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def expire_unpaid_orders_scheduled(request):
+    expected_token = settings.EXPIRATION_JOB_TOKEN
+    if not expected_token:
+        return Response(
+            {"detail": "Order-expiration job is not configured."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+    supplied_token = request.headers.get("X-Expiration-Job-Token", "")
+    if not hmac.compare_digest(supplied_token, expected_token):
+        return Response(
+            {"detail": "Invalid scheduler credential."},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    expired_count = _expire_due_unpaid_orders()
+    return Response({"rejected": expired_count}, status=status.HTTP_200_OK)
 
 
 @api_view(["POST"])

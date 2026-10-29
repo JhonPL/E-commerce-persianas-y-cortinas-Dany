@@ -45,6 +45,7 @@ DATABASES = {
         "HOST": env("NOTIFICATIONS_DB_HOST"),
         "PORT": env("NOTIFICATIONS_DB_PORT", default="5432"),
         "OPTIONS": {
+            "sslmode": env("DATABASE_SSLMODE", default="prefer"),
             "options": "-c timezone=America/Bogota",
         },
     }
@@ -85,6 +86,8 @@ EMAIL_BACKEND = env(
     "EMAIL_BACKEND",
     default="django.core.mail.backends.smtp.EmailBackend",
 )
+BREVO_API_KEY = env("BREVO_API_KEY", default="")
+NOTIFICATIONS_PUBLIC_URL = env("NOTIFICATIONS_PUBLIC_URL", default="").rstrip("/")
 EMAIL_HOST = env("EMAIL_HOST", default="smtp.gmail.com")
 EMAIL_PORT = env.int("EMAIL_PORT", default=587)
 EMAIL_HOST_USER = env(

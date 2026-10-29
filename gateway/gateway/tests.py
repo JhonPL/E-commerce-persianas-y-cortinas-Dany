@@ -12,6 +12,17 @@ class GatewayHealthTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "ok", "service": "gateway"})
 
+    def test_cloud_run_health_endpoints_are_ready(self):
+        for path in ("/health/live/", "/health/ready/"):
+            with self.subTest(path=path):
+                response = self.client.get(path)
+
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(
+                    response.json(),
+                    {"status": "ok", "service": "gateway"},
+                )
+
 
 @override_settings(
     CATALOGO_SERVICE_URL="http://catalog.test/api/v1/catalogo",

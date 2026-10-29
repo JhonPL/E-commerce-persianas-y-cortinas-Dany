@@ -2,9 +2,13 @@ from django.urls import path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from pedidos import views
+from pedidos.health import live as health_live
+from pedidos.health import ready as health_ready
 
 
 urlpatterns = [
+    path("health/live/", health_live),
+    path("health/ready/", health_ready),
     path("api/v1/pedidos/checkout/", views.checkout),
     path("api/v1/pedidos/", views.mis_pedidos),
     path(
@@ -33,6 +37,11 @@ urlpatterns = [
     path(
         "api/internal/pedidos/<int:pedido_id>/payment-result/",
         views.internal_payment_result,
+    ),
+    path(
+        "api/internal/pedidos/expire-unpaid-orders/",
+        views.expire_unpaid_orders_scheduled,
+        name="expire-unpaid-orders-scheduled",
     ),
     path("api/internal/pedidos/dashboard/", views.internal_dashboard),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
