@@ -400,6 +400,25 @@ class ContactMessageNotificationTests(APITestCase):
             "No fue posible enviar el mensaje. Inténtalo de nuevo.",
         )
 
+    def test_unexpected_delivery_error_is_logged_and_propagated(self):
+        with self.assertLogs("notificaciones.views", level="ERROR") as captured:
+            with patch(
+                "notificaciones.views.EmailMessage.send",
+                side_effect=RuntimeError("unexpected backend failure"),
+            ):
+                with self.assertRaisesMessage(
+                    RuntimeError,
+                    "unexpected backend failure",
+                ):
+                    self._post(
+                        HTTP_X_INTERNAL_SERVICE_TOKEN="test-internal-token",
+                    )
+
+        self.assertIn(
+            "Unexpected error while sending a contact form message",
+            captured.output[0],
+        )
+
     @override_settings(
         ADMIN_EMAIL="jhon.paternina302@gmail.com",
         DEFAULT_FROM_EMAIL="jhon.paternina302@gmail.com",

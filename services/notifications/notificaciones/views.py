@@ -377,5 +377,8 @@ class ContactMessageNotificationView(APIView):
                 {"detail": "No fue posible enviar el mensaje. Inténtalo de nuevo."},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
+        except Exception:
+            logger.exception("Unexpected error while sending a contact form message")
+            raise
 
         return Response({"estado": "enviado"}, status=status.HTTP_200_OK)
