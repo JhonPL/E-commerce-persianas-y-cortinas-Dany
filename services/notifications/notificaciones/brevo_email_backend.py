@@ -95,7 +95,7 @@ class BrevoEmailBackend(BaseEmailBackend):
         else:
             payload["textContent"] = email_message.body
 
-        for content, mimetype in email_message.alternatives:
+        for content, mimetype in getattr(email_message, "alternatives", ()):
             if mimetype == "text/html":
                 payload["htmlContent"] = content
             elif mimetype == "text/plain":

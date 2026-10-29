@@ -3,7 +3,7 @@ import json
 from unittest.mock import MagicMock, patch
 from urllib.error import HTTPError
 
-from django.core.mail import EmailMultiAlternatives
+from django.core.mail import EmailMessage, EmailMultiAlternatives
 from django.test import SimpleTestCase, override_settings
 from rest_framework.test import APIClient
 
@@ -12,6 +12,36 @@ from .email_templates import _header
 
 
 class BrevoEmailBackendTests(SimpleTestCase):
+    @override_settings(
+        BREVO_API_KEY="test-api-key",
+        DEFAULT_FROM_EMAIL="Tienda <store@example.com>",
+    )
+    def test_sends_plain_email_message_without_alternatives(self):
+        message = EmailMessage(
+            "Nuevo mensaje de contacto",
+            "Consulta de un cliente.",
+            "Tienda <store@example.com>",
+            ["admin@example.com"],
+            reply_to=["customer@example.com"],
+        )
+        response = MagicMock()
+        response.__enter__.return_value = response
+        response.status = 201
+
+        with patch(
+            "notificaciones.brevo_email_backend.urlopen",
+            return_value=response,
+        ) as send_request:
+            sent_count = BrevoEmailBackend().send_messages([message])
+
+        payload = json.loads(send_request.call_args.args[0].data)
+
+        self.assertEqual(sent_count, 1)
+        self.assertEqual(payload["textContent"], "Consulta de un cliente.")
+        self.assertEqual(payload["replyTo"], {
+            "email": "customer@example.com",
+        })
+
     @override_settings(
         BREVO_API_KEY="test-api-key",
         DEFAULT_FROM_EMAIL="Tienda <store@example.com>",
