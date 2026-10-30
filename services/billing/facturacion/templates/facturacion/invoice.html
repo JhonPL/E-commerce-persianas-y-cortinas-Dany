@@ -66,8 +66,7 @@
           <tr>
             <td class="ico"><img src="{{ item.icon }}" alt=""></td>
             <td class="ds">
-              <b>{% if item.is_continuation %}{{ item.producto_nombre }} (continuación){% else %}{{ item.producto_nombre }}{% endif %}</b>
-              {% if item.display_description %}<span>{{ item.display_description }}</span>{% endif %}
+              <b>{{ item.producto_nombre }}</b>
               {% if item.display_specs %}<span>{{ item.display_specs }}</span>{% endif %}
             </td>
             <td class="q">{{ item.display_quantity }}</td><td class="v">{{ item.formatted_unit_price }}</td><td class="t">{{ item.formatted_line_total }}</td>
@@ -158,8 +157,7 @@
           <tr>
             <td class="ico"><img src="{{ item.icon }}" alt=""></td>
             <td class="ds">
-              <b>{% if item.is_continuation %}{{ item.producto_nombre }} (continuación){% else %}{{ item.producto_nombre }}{% endif %}</b>
-              {% if item.display_description %}<span>{{ item.display_description }}</span>{% endif %}
+              <b>{{ item.producto_nombre }}</b>
               {% if item.display_specs %}<span>{{ item.display_specs }}</span>{% endif %}
             </td>
             <td class="q">{{ item.display_quantity }}</td><td class="v">{{ item.formatted_unit_price }}</td><td class="t">{{ item.formatted_line_total }}</td>

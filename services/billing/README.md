@@ -21,8 +21,10 @@ La presentación y los iconos SVG de la maqueta se editan en la plantilla HTML;
 las dimensiones, tipografía y estilos de impresión se ajustan en el CSS. Las
 fuentes, el logo y las ilustraciones de producto deben permanecer como recursos
 locales en `facturacion/assets/`. La preparación de valores, el formato
-monetario, la selección de icono por categoría, la paginación de descripciones
-largas y los datos del QR se encuentran en `facturacion/invoice_data.py`.
+monetario, la selección de icono por categoría, la paginación de productos y los
+datos del QR se encuentran en `facturacion/invoice_data.py`. Cada línea de
+producto de la factura muestra solo el nombre y las medidas; omite la
+descripción, el material, el color y el tipo de instalación.
 `facturacion/pdf.py` solo renderiza la plantilla y la convierte a PDF. El
 fetcher de WeasyPrint limita imágenes y estilos a los assets locales y a la
 imagen de datos del QR. En pedidos de una sola página, el pie se alinea cerca

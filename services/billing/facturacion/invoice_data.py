@@ -89,30 +89,12 @@ def category_icon(category_name):
     return "icons/document-outline-regular.png"
 
 
-def _description_parts(value, max_length=220):
-    text = str(value or "").strip()
-    if not text:
-        return [""]
-
-    parts = []
-    while len(text) > max_length:
-        split_at = text.rfind(" ", 0, max_length + 1)
-        if split_at < max_length // 2:
-            split_at = max_length
-        parts.append(text[:split_at].strip())
-        text = text[split_at:].strip()
-    if text:
-        parts.append(text)
-    return parts
-
-
 def _estimated_row_height(row):
     title_lines = max(1, math.ceil(len(row["producto_nombre"]) / 40))
-    description_lines = math.ceil(len(row["display_description"]) / 40)
     specs_lines = math.ceil(len(row["display_specs"]) / 40)
     return max(
         75.5,
-        15 + title_lines * 13.5 + (description_lines + specs_lines) * 14.2,
+        15 + (title_lines + specs_lines) * 14.2,
     )
 
 
@@ -174,34 +156,15 @@ def build_invoice_context(*, invoice, data, issued_at):
         }
         details.append(detail)
 
-        description_parts = _description_parts(item.get("descripcion"))
-        for part_index, description_part in enumerate(description_parts):
-            specs = []
-            if not part_index:
-                specs.append(
-                    "Medidas: "
-                    f"{_format_measurement(item['ancho_cm'])} × "
-                    f"{_format_measurement(item['alto_cm'])} cm"
-                )
-                if item.get("material"):
-                    specs.append(f"Material: {item['material']}")
-                if item.get("color"):
-                    specs.append(f"Color: {item['color']}")
-                if item.get("tipo_instalacion"):
-                    specs.append(f"Instalación: {item['tipo_instalacion']}")
-            invoice_rows.append({
-                **detail,
-                "display_description": description_part,
-                "display_specs": " · ".join(specs),
-                "is_continuation": part_index > 0,
-                "formatted_unit_price": (
-                    "" if part_index else detail["formatted_unit_price"]
-                ),
-                "formatted_line_total": (
-                    "" if part_index else detail["formatted_line_total"]
-                ),
-                "display_quantity": "" if part_index else quantity,
-            })
+        invoice_rows.append({
+            **detail,
+            "display_specs": (
+                "Medidas: "
+                f"{_format_measurement(item['ancho_cm'])} × "
+                f"{_format_measurement(item['alto_cm'])} cm"
+            ),
+            "display_quantity": quantity,
+        })
 
     total = Decimal(data["total"])
     subtotal = sum(

@@ -245,9 +245,9 @@ class DemoInvoicePdfTests(APITestCase):
         self.assertEqual(context["details"][0]["color"], "Marfil")
         self.assertEqual(context["details"][0]["tipo_instalacion"], "Pared")
         self.assertEqual(context["first_page_details"][0]["display_quantity"], 1)
-        self.assertIn(
-            "Medidas: 100,00 × 200,00 cm",
+        self.assertEqual(
             context["first_page_details"][0]["display_specs"],
+            "Medidas: 100,00 × 200,00 cm",
         )
         self.assertEqual(context["invoice"]["order_number"], 81)
         self.assertEqual(
@@ -262,6 +262,12 @@ class DemoInvoicePdfTests(APITestCase):
             },
         )
         html = render_to_string("facturacion/invoice.html", context)
+        self.assertIn("Cortina Blackout", html)
+        self.assertIn("Medidas: 100,00 × 200,00 cm", html)
+        self.assertNotIn("Tela de bloqueo de luz", html)
+        self.assertNotIn("Material: Lino", html)
+        self.assertNotIn("Color: Marfil", html)
+        self.assertNotIn("Instalación: Pared", html)
         totals = html.split('<div class="tot">', 1)[1].split("</div>", 1)[0]
         self.assertIn(
             '<tr class="final"><td>TOTAL A PAGAR</td><td>$ 125.000</td></tr>',
@@ -392,7 +398,7 @@ class DemoInvoicePdfTests(APITestCase):
         WEASYPRINT_AVAILABLE,
         "WeasyPrint native libraries (Pango/GTK) are unavailable in this environment.",
     )
-    def test_pdf_splits_many_products_and_long_descriptions_across_pages(self):
+    def test_pdf_splits_many_products_without_rendering_descriptions(self):
         details = [
             {
                 "producto_id": product_id,
@@ -427,26 +433,25 @@ class DemoInvoicePdfTests(APITestCase):
             issued_at=invoice.fecha_emision,
             data=payload,
         )
-        self.assertEqual(len(context["first_page_details"]), 2)
+        self.assertEqual(len(context["first_page_details"]), 3)
         self.assertGreater(len(context["continuation_pages"]), 1)
         prepared_rows = context["first_page_details"] + [
             row
             for page_details in context["continuation_pages"]
             for row in page_details
         ]
-        long_description_parts = [
-            row["display_description"]
-            for row in prepared_rows
-            if row["producto_id"] == 1 and row["display_description"]
-        ]
-        self.assertEqual(
-            " ".join(long_description_parts),
-            details[0]["descripcion"].strip(),
-        )
         self.assertEqual(
             {row["producto_id"] for row in prepared_rows},
             {detail["producto_id"] for detail in details},
         )
+        self.assertEqual(len(prepared_rows), len(details))
+        html = render_to_string(
+            "facturacion/invoice.html",
+            context,
+        )
+        self.assertNotIn(details[0]["descripcion"].strip(), html)
+        self.assertIn("Producto personalizado 1", html)
+        self.assertIn("Medidas: 100,00 × 200,00 cm", html)
         document = render_invoice_document(context)
         self.assertGreater(len(document.pages), 1)
         footer = _find_element_box(document.pages[0], "foot")
