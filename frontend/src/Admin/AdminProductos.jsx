@@ -11,10 +11,13 @@ const CLOUD_NAME    = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME    || 'tu_cloud
 const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'cortinas_dany'
 const UPLOAD_URL    = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`
 
-const authHeaders = () => ({
-  'Content-Type': 'application/json',
-  'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
-})
+const authHeaders = () => {
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token') || ''
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`,
+  }
+}
 
 /* ── Helpers ──────────────────────────────────────────────*/
 const fmt          = (n) => `$${Number(n).toLocaleString('es-CO')}`
@@ -403,14 +406,15 @@ export default function AdminProductos() {
       // 2. Sincronizar imágenes via endpoint subir_imagen
       const imagenesNuevas = form.imagenes.filter(img => !img.imagen_id && !img.uploading)
       for (const img of imagenesNuevas) {
-        await fetch(`${API_URL}/catalogo/productos/${productoId}/subir_imagen/`, {
+        const imgRes = await fetch(`${API_URL}/catalogo/productos/${productoId}/subir_imagen/`, {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${sessionStorage.getItem('token') || ''}`,
-            'Content-Type': 'application/json',
-          },
+          headers: authHeaders(),
           body: JSON.stringify({ url: img.url, es_principal: img.es_principal }),
         })
+        if (!imgRes.ok) {
+          const errData = await imgRes.json().catch(() => ({}))
+          console.error('Error al registrar imagen del producto:', errData)
+        }
       }
 
       await cargarProductos()
