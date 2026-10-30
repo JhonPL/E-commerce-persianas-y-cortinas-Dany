@@ -56,6 +56,37 @@ class ServiceProxyTests(SimpleTestCase):
 
 
 @override_settings(
+    CART_SERVICE_URL="http://cart.test/api/v1/carrito",
+    CART_SERVICE_TIMEOUT_SECONDS=90,
+)
+class CartServiceProxyTests(SimpleTestCase):
+    @patch("gateway.proxies.requests.request")
+    def test_cart_sync_proxy_uses_extended_timeout(self, request):
+        request.return_value = Mock(
+            content=b'{"items":[]}',
+            status_code=200,
+            headers={"Content-Type": "application/json"},
+        )
+
+        response = self.client.post(
+            "/api/v1/carrito/sincronizar/",
+            data='{"items":[]}',
+            content_type="application/json",
+            HTTP_AUTHORIZATION="******",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            request.call_args.args[:2],
+            (
+                "POST",
+                "http://cart.test/api/v1/carrito/sincronizar/",
+            ),
+        )
+        self.assertEqual(request.call_args.kwargs["timeout"], 90)
+
+
+@override_settings(
     ORDERS_SERVICE_URL="http://orders.test",
     SERVICE_TIMEOUT_SECONDS=3,
     ORDERS_SERVICE_TIMEOUT_SECONDS=30,

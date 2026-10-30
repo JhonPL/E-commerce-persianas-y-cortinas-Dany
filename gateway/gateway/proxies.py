@@ -94,6 +94,7 @@ class CatalogServiceProxy(ServiceProxy):
 class CartServiceProxy(ServiceProxy):
     service_url_setting = "CART_SERVICE_URL"
     service_label = "carrito"
+    timeout_setting = "CART_SERVICE_TIMEOUT_SECONDS"
 
 
 class OrdersServiceProxy(ServiceProxy):

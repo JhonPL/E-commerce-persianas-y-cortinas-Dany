@@ -71,6 +71,10 @@ CART_SERVICE_INTERNAL_URL = env(
     "CART_SERVICE_INTERNAL_URL",
     default="http://127.0.0.1:8002/api/internal/carrito",
 ).rstrip("/")
+CART_SERVICE_TIMEOUT_SECONDS = env.int(
+    "CART_SERVICE_TIMEOUT_SECONDS",
+    default=90,
+)
 ORDERS_SERVICE_URL = env(
     "ORDERS_SERVICE_URL",
     default="http://127.0.0.1:8003",

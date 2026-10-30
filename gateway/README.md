@@ -31,6 +31,8 @@ los archivos `requirements.txt` de cada servicio.
 
 - Identidad, catálogo, carrito, pedidos y simulador: proxies que conservan los
   contratos HTTP consumidos por el frontend.
+- El proxy del carrito espera hasta 90 segundos para dar margen al arranque en
+  frío de la instancia gratuita de Render.
 - El checkout tiene un timeout dedicado de 30 segundos para completar sus
   llamadas a pedidos y notificaciones.
 - `POST /api/v1/contacto/` reenvía el formulario al servicio de notificaciones;
