@@ -13,14 +13,6 @@ SECRET_KEY = env("DJANGO_SECRET_KEY")
 DEBUG = env("DJANGO_DEBUG")
 ALLOWED_HOSTS = env("DJANGO_ALLOWED_HOSTS")
 
-# The shared container entrypoint runs migrate; this gateway has no owned data.
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": ":memory:",
-    }
-}
-
 INSTALLED_APPS = [
     "corsheaders",
 ]
@@ -35,14 +27,22 @@ ROOT_URLCONF = "gateway.urls"
 WSGI_APPLICATION = "gateway.wsgi.application"
 ASGI_APPLICATION = "gateway.asgi.application"
 
-CORS_ALLOWED_ORIGINS = env.list(
-    "CORS_ALLOWED_ORIGINS",
-    default=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
-)
+CORS_ALLOWED_ORIGINS = [
+    origin.strip().strip("'\"").rstrip("/")
+    for origin in env.list(
+        "CORS_ALLOWED_ORIGINS",
+        default=[
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+        ],
+    )
+    if origin.strip()
+]
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://.*\.vercel\.app$",
+]
 CORS_ALLOW_CREDENTIALS = True
+
 
 IDENTITY_SERVICE_URL = env(
     "IDENTITY_SERVICE_URL",
