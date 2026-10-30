@@ -23,6 +23,13 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
 ]
 
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": ":memory:",
+    }
+}
+
 ROOT_URLCONF = "gateway.urls"
 WSGI_APPLICATION = "gateway.wsgi.application"
 ASGI_APPLICATION = "gateway.asgi.application"
