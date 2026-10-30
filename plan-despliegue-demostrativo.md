@@ -2,7 +2,7 @@
 
 **Proyecto:** Cortinas y Persianas — arquitectura de microservicios
 
-**Revisado:** 28 de octubre de 2026
+**Revisado:** 29 de octubre de 2026
 
 **Objetivo:** publicar una demostración educativa para una exposición de unos
 15 minutos. No es producción comercial, no procesa pagos reales y no debe
@@ -88,13 +88,13 @@ hasta cinco por proyecto y el crédito de prueba es temporal; el plan Free
 ofrece USD 1 de crédito mensual. La página actual de Koyeb no anuncia un plan
 gratuito de cómputo, así que no se incluye en el despliegue sin facturación.
 
-## Cambios técnicos necesarios antes de crear recursos
+## Cambios técnicos necesarios antes de desplegar
 
-El despliegue cloud sigue pendiente, pero ya comenzó la preparación técnica
-local. El repositorio incluye un Dockerfile reutilizable para siete
-componentes, uno específico para facturación, un constructor de las ocho
-imágenes, endpoints de salud y un script de activación. No se ha configurado
-un proyecto cloud ni se han creado recursos.
+La preparación técnica local está lista, y la configuración de Neon ya se
+rehizo y verificó. El repositorio incluye un Dockerfile reutilizable para
+siete componentes, uno específico para facturación, un constructor de las
+ocho imágenes, endpoints de salud y un script de activación. Render, Vercel,
+Brevo y cron-job.org siguen pendientes.
 
 ### 1. Contenerizar los ocho componentes
 
@@ -152,9 +152,26 @@ en el repositorio para automatizar esta parte.
 
 ### 2. Bases y datos de muestra
 
-- Crear un proyecto Neon para la demo y una base distinta para cada dueño de
-  datos: identidad, catálogo, carrito, pedidos, notificaciones, simulador de
-  pagos y facturación.
+- El proyecto Neon de la demo ya existe en AWS US West 2 (Oregon), rama
+  `production`. Sus siete bases están separadas por servicio y pertenecen a
+  roles de aplicación creados por SQL:
+
+  | Base | Rol propietario |
+  |---|---|
+  | `identity_service` | `identity_app` |
+  | `catalogo` | `catalog_app` |
+  | `cart_service` | `cart_app` |
+  | `orders_service` | `orders_app` |
+  | `notifications_service` | `notifications_app` |
+  | `billing_service` | `billing_app` |
+  | `cortinas_payments_simulator` | `payments_app` |
+
+- Los roles ya tienen contraseñas nuevas generadas por Neon. Sus archivos
+  individuales `.env` están en `%USERPROFILE%\Downloads` y fuera del
+  repositorio; no subirlos ni copiar sus valores al chat.
+- Las migraciones Django ya se aplicaron a las siete bases desde las imágenes
+  Docker locales de cada microservicio, usando conexión directa a Neon y TLS.
+  Aún no se han cargado usuarios, productos ni pedidos de demostración.
 - Configurar en cada servicio sus variables actuales `*_DB_NAME`, `*_DB_USER`,
   `*_DB_PASSWORD`, `*_DB_HOST` y `*_DB_PORT`; los settings actuales no están
   basados en una variable única `DATABASE_URL`.
@@ -277,11 +294,100 @@ servidor HTTP de Render.
 
 ## Guion de preparación y exposición
 
+### Configuración manual segura de los servicios
+
+Crear los servicios desde el repositorio `JhonPL/E-commerce-persianas-y-cortinas-Dany`,
+rama `V3-microservicios`, región Oregon, plan Free y contexto de build raíz. En
+cada servicio Docker usar `/health/ready/` como health check y cargar las
+variables desde el panel de Render. No enviar contraseñas, tokens ni claves API
+por el chat ni incluirlas en el repositorio.
+
+| Servicio Render | Dockerfile | `SERVICE_PATH` | `WSGI_MODULE` |
+|---|---|---|---|
+| `cortinas-identity` (ya desplegado) | `deploy/Dockerfile` | `services/identity` | `auth_service.wsgi:application` |
+| `cortinas-catalog` | `deploy/Dockerfile` | `services/catalog` | `catalog_service.wsgi:application` |
+| `cortinas-cart` | `deploy/Dockerfile` | `services/cart` | `cart_service.wsgi:application` |
+| `cortinas-orders` | `deploy/Dockerfile` | `services/orders` | `orders_service.wsgi:application` |
+| `cortinas-notifications` | `deploy/Dockerfile` | `services/notifications` | `notification_service.wsgi:application` |
+| `cortinas-billing` | `deploy/Dockerfile.billing` | `services/billing` | `billing_service.wsgi:application` |
+| `cortinas-payments-simulator` | `deploy/Dockerfile` | `services/payments-simulator` | `payments_service.wsgi:application` |
+| `cortinas-gateway` | `deploy/Dockerfile` | `gateway` | `gateway.wsgi:application` |
+
+Para cada servicio con base, mapear el archivo de credenciales local de su rol
+(`*_app.env`) en el panel de Render: `PGDATABASE` a `<PREFIJO>_DB_NAME`,
+`PGUSER` a `<PREFIJO>_DB_USER`, `PGPASSWORD` a `<PREFIJO>_DB_PASSWORD`,
+`PGHOST` a `<PREFIJO>_DB_HOST` y `PGPORT` a `<PREFIJO>_DB_PORT`. Los prefijos
+son `IDENTITY`, `CATALOGO`, `CART`, `ORDERS`, `NOTIFICATIONS`, `BILLING` y
+`PAYMENTS`, respectivamente. Añadir también `DATABASE_SSLMODE=require`,
+`DJANGO_DEBUG=False`, un `DJANGO_SECRET_KEY` único por servicio y
+`DJANGO_ALLOWED_HOSTS` con el hostname exacto asignado por Render.
+
+Generar un valor aleatorio fuerte para `INTERNAL_SERVICE_TOKEN` y cargar el
+mismo valor en los servicios que se comunican internamente y en el gateway.
+Generar otro valor independiente para `EXPIRATION_JOB_TOKEN`; solo se configura
+en pedidos y en el scheduler. Nunca reutilizar la clave Django como token.
+
+Variables adicionales por servicio:
+
+- **Catálogo:** `AUTH_SERVICE_URL`, `SERVICE_TIMEOUT_SECONDS`,
+  `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` y `CLOUDINARY_API_SECRET`.
+- **Carrito:** `AUTH_SERVICE_URL`, `CATALOGO_SERVICE_INTERNAL_URL` y
+  `SERVICE_TIMEOUT_SECONDS`.
+- **Pedidos:** `AUTH_SERVICE_URL`, `CATALOGO_SERVICE_INTERNAL_URL`,
+  `CART_SERVICE_URL`, `NOTIFICATIONS_SERVICE_URL`, `BILLING_SERVICE_URL` y
+  `SERVICE_TIMEOUT_SECONDS`.
+- **Notificaciones:** `EMAIL_BACKEND=notificaciones.brevo_email_backend.BrevoEmailBackend`,
+  `BREVO_API_KEY`, `ADMIN_EMAIL`, `CONTACT_EMAIL`, `DEFAULT_FROM_EMAIL`,
+  `FRONTEND_URL` y `NOTIFICATIONS_PUBLIC_URL`. El remitente debe estar
+  verificado en Brevo; SMTP no funciona desde Render Free.
+- **Facturación:** `INTERNAL_SERVICE_TOKEN`. No participa en el checkout
+  normal, pero se despliega como componente independiente.
+- **Simulador de pagos:** `AUTH_SERVICE_URL`, `ORDERS_SERVICE_URL`,
+  `PAYMENT_SIMULATOR_ENABLED=True` y `SERVICE_TIMEOUT_SECONDS`. Es solo una
+  simulación: no recopila tarjetas ni procesa dinero.
+- **Gateway:** `IDENTITY_SERVICE_URL`, `CATALOGO_SERVICE_URL`,
+  `CATALOGO_SERVICE_INTERNAL_URL`, `CART_SERVICE_URL`,
+  `CART_SERVICE_INTERNAL_URL`, `ORDERS_SERVICE_URL`, `PAYMENTS_SERVICE_URL`,
+  `NOTIFICATIONS_SERVICE_URL`, `CORS_ALLOWED_ORIGINS` y los timeouts del
+  `.env.example`. `CORS_ALLOWED_ORIGINS` debe ser el origen HTTPS exacto de
+  Vercel, sin comodines.
+- **Identidad:** ya está desplegado. Si se usa login de Google, configurar
+  `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` y los URI autorizados tanto en
+  Render como en Google Cloud Console.
+
+Las URLs previstas siguen el nombre del servicio, por ejemplo
+`https://cortinas-catalog.onrender.com`; después de crear cada recurso, copiar
+la URL que muestra Render y actualizar las referencias entre servicios con
+esa URL real. Para las rutas, conservar exactamente las del `.env.example`:
+`AUTH_SERVICE_URL` termina en `/api/v1/auth/me/`;
+`CATALOGO_SERVICE_URL` termina en `/api/v1/catalogo`;
+`CATALOGO_SERVICE_INTERNAL_URL` termina en `/api/internal/catalogo`;
+`CART_SERVICE_URL` es la URL base del servicio cuando la consume pedidos y
+termina en `/api/v1/carrito` cuando la consume el gateway;
+`CART_SERVICE_INTERNAL_URL` termina en `/api/internal/carrito`;
+`PAYMENTS_SERVICE_URL` termina en `/api/v1/payments`.
+
+Publicar `frontend` en Vercel con `npm run build`, directorio de salida `dist`
+y `VITE_API_URL=https://<gateway-host-real>/api/v1`. Confirmar esa variable
+antes de compilar; el `.env.production` del repositorio aún apunta a una URL
+antigua y no debe usarse como destino de la demo. Después de publicar Vercel,
+volver al gateway y a notificaciones para fijar el origen final de Vercel en
+`CORS_ALLOWED_ORIGINS` y `FRONTEND_URL`. El frontend no debe recibir tokens,
+contraseñas ni claves privadas.
+
+No considerar terminado el despliegue hasta que estén configurados directamente
+en sus paneles las credenciales de Neon, Brevo, Cloudinary y Google OAuth que
+se vayan a usar; cada URL HTTPS responda `GET /health/ready/` con HTTP 200; y
+se complete el recorrido de aceptación de esta sección. El envío real de
+correo, el acceso OAuth y las imágenes dependen de sus claves externas
+correspondientes.
+
 ### Un día antes (o la mañana de la exposición)
 
 1. Conectar el repositorio a Render y Vercel; comprobar los límites gratuitos
    del workspace de Render y no agregar un método de pago.
-2. Crear las bases en Neon, cargar secretos y ejecutar migraciones.
+2. Confirmar que los archivos de credenciales Neon están guardados fuera del
+   repositorio y ejecutar las migraciones de las siete bases vacías.
 3. Crear ocho servicios Docker independientes en Render. Para cada uno, elegir
    el Dockerfile/contexto del repositorio y configurar `SERVICE_PATH`,
    `WSGI_MODULE`, variables de DB, URLs y secretos.
@@ -343,20 +449,51 @@ servidor HTTP de Render.
 
 ## Estado
 
-Este documento sigue siendo un plan, no un despliegue cloud ejecutado. La
-preparación local ya tiene los Dockerfiles, los ocho endpoints de salud y los
-scripts de construcción/activación. Las ocho imágenes se reconstruyeron en
+La preparación local está validada: las ocho imágenes se reconstruyeron en
 Docker Desktop después de los cambios de Brevo y expiración programada; todas
 pasaron `manage.py check` y la comprobación de configuración de Gunicorn.
 También pasaron las suites locales de los ocho componentes y la validación
-sintáctica de los scripts PowerShell.
+sintáctica de los scripts PowerShell. El commit `3594f2e` ya está publicado en
+la rama `V3-microservicios`.
 
-Todavía no se han creado servicios en Render, bases en Neon ni secretos, y no
-se ha probado el envío real de Brevo ni el vencimiento programado desde Render.
-El proyecto tiene un repositorio Git, pero no se ha conectado a las cuentas de
-Render, Vercel, Neon o Brevo. Falta configurar las cuentas, cargar sus secretos
-en los paneles y validar el flujo público completo. No se ha compartido ni
-guardado ninguna credencial.
+El proyecto Neon inicial fue eliminado y se recreó como `cortinas-persianas-demo`
+(Project ID `withered-truth-84643412`), en AWS US West 2 (Oregon), rama
+`production` (Branch ID `br-rapid-frog-aruqmuys`). Se verificó el acceso al SQL
+Editor como `neondb_owner`; también se comprobó que los siete roles de aplicación
+pueden crearse mediante SQL y que Neon permite generarles una contraseña nueva
+desde **Reset password** cuando ya tienen una contraseña temporal.
+
+Los siete roles se crearon por SQL con `LOGIN` y `NOINHERIT`. La consulta de
+verificación confirmó para todos: sin `SUPERUSER`, `CREATEDB` ni `CREATEROLE`,
+y sin membresías de otros roles. Las siete bases de la tabla anterior fueron
+creadas después y se verificó que cada una pertenece al rol correspondiente.
+Las contraseñas nuevas se descargaron como archivos `.env` por rol en
+`%USERPROFILE%\Downloads`; ningún valor de contraseña se añadió al repositorio
+ni al chat. Mantener esos archivos fuera de Git y usarlos al configurar Render.
+
+Las siete conexiones autenticadas se probaron desde un contenedor Docker con
+el driver PostgreSQL: cada una devolvió su usuario y base correctos con
+`sslmode=require`. Las migraciones Django de identidad, catálogo, carrito,
+pedidos, notificaciones, facturación y simulador terminaron correctamente;
+pedidos incluye la migración de estados de checkout predefinidos. No se
+ejecutaron seeds de usuarios, productos ni pedidos. Neon Free puede suspender
+el compute por inactividad; ese comportamiento es normal.
+
+Render está en el plan Hobby, sin tarjeta registrada. Se creó el primer servicio
+de esta demo: `cortinas-identity`, en Oregon, desde la rama
+`V3-microservicios` y con el Dockerfile `deploy/Dockerfile`. Render informó
+`Deploy succeeded`; Gunicorn inició y el log confirmó que la instancia quedó
+disponible. El endpoint `https://cortinas-identity.onrender.com/health/ready/`
+respondió HTTP 200 con JSON. El archivo temporal usado para cargar variables a
+Render se eliminó después de la configuración.
+
+Los otros seis servicios y el gateway aún no se han creado. Tampoco se ha
+publicado el frontend en Vercel, configurado Brevo o activado el scheduler. No
+se ha probado el envío real de correo ni la expiración programada desde la
+nube. Se añadió arriba una matriz de Dockerfiles, rutas WSGI, variables y URLs
+previstas para completar manualmente la configuración de los paneles sin
+compartir secretos por el chat. La identidad está desplegada, pero el flujo
+público completo sigue pendiente.
 
 ## Referencias oficiales consultadas
 

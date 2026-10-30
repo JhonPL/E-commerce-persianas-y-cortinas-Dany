@@ -192,6 +192,13 @@ def _approved_order_payload(order):
     }
 
 
+class InvoiceGenerationError(Exception):
+    def __init__(self, message, status_code=status.HTTP_503_SERVICE_UNAVAILABLE):
+        super().__init__(message)
+        self.message = message
+        self.status_code = status_code
+
+
 def _generate_demo_invoice(order, payload=None):
     token = settings.INTERNAL_SERVICE_TOKEN
     if not token:
@@ -199,7 +206,20 @@ def _generate_demo_invoice(order, payload=None):
             "Order %s was paid but its billing token is not configured.",
             order.pedido_id,
         )
-        return None
+        raise InvoiceGenerationError(
+            "Falta configurar INTERNAL_SERVICE_TOKEN en el servicio de pedidos."
+        )
+
+    try:
+        data = payload if payload is not None else _approved_order_payload(order)
+    except CatalogServiceUnavailable as exc:
+        logger.exception(
+            "Order %s was paid but its catalog details could not be loaded.",
+            order.pedido_id,
+        )
+        raise InvoiceGenerationError(
+            "No fue posible cargar los detalles del catálogo para la factura."
+        ) from exc
 
     try:
         response = requests.post(
@@ -207,7 +227,7 @@ def _generate_demo_invoice(order, payload=None):
                 f"{settings.BILLING_SERVICE_URL}"
                 "/api/internal/facturas/demo-pdf/"
             ),
-            json=payload if payload is not None else _approved_order_payload(order),
+            json=data,
             headers={"X-Internal-Service-Token": token},
             timeout=settings.SERVICE_TIMEOUT_SECONDS,
         )
@@ -218,18 +238,30 @@ def _generate_demo_invoice(order, payload=None):
             or not response.content.startswith(b"%PDF-")
         ):
             raise ValueError("Billing devolvió un comprobante PDF inválido.")
-    except CatalogServiceUnavailable:
+    except requests.Timeout as exc:
+        logger.exception("Timeout conectando a billing para pedido %s", order.pedido_id)
+        raise InvoiceGenerationError(
+            f"Tiempo de espera agotado al conectar con el servicio de facturación ({settings.BILLING_SERVICE_URL}). Es posible que el contenedor esté iniciando."
+        ) from exc
+    except requests.RequestException as exc:
         logger.exception(
-            "Order %s was paid but its catalog details could not be loaded.",
+            "Order %s was paid but its demo invoice could not be generated: %s",
             order.pedido_id,
+            exc,
         )
-        return None
-    except (requests.RequestException, ValueError):
+        status_code = getattr(getattr(exc, "response", None), "status_code", None)
+        if status_code in (401, 403):
+            detail = f"Facturación rechazó la autenticación interna (HTTP {status_code}). Verifica que INTERNAL_SERVICE_TOKEN coincida en pedidos y facturación."
+        else:
+            detail = f"Error al comunicarse con el servicio de facturación ({settings.BILLING_SERVICE_URL}): {exc}"
+        raise InvoiceGenerationError(detail) from exc
+    except ValueError as exc:
         logger.exception(
-            "Order %s was paid but its demo invoice could not be generated.",
+            "Order %s was paid but its demo invoice could not be generated: %s",
             order.pedido_id,
+            exc,
         )
-        return None
+        raise InvoiceGenerationError(str(exc)) from exc
 
     return {
         "numero_factura": response.headers.get(
@@ -263,11 +295,12 @@ def descargar_factura(request, pedido_id):
             status=status.HTTP_409_CONFLICT,
         )
 
-    invoice = _generate_demo_invoice(order)
-    if not invoice:
+    try:
+        invoice = _generate_demo_invoice(order)
+    except InvoiceGenerationError as exc:
         return Response(
-            {"detail": "No fue posible generar el documento. Inténtalo más tarde."},
-            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            {"detail": exc.message},
+            status=exc.status_code,
         )
 
     response = HttpResponse(
@@ -299,8 +332,9 @@ def _notify_payment_approved(order):
         )
         return "fallido"
 
-    invoice = _generate_demo_invoice(order, payload)
-    if not invoice:
+    try:
+        invoice = _generate_demo_invoice(order, payload)
+    except InvoiceGenerationError:
         return "fallido"
 
     payload.update(invoice)

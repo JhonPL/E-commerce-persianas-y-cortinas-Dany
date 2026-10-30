@@ -1,4 +1,5 @@
 import hmac
+import logging
 
 import requests
 from django.conf import settings
@@ -9,6 +10,8 @@ from django.views.decorators.http import (
     require_http_methods,
     require_POST,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _get_json(url, *, headers=None, timeout=None):
@@ -27,7 +30,7 @@ def _get_json(url, *, headers=None, timeout=None):
 def _service_summary(service, path):
     token = settings.INTERNAL_SERVICE_TOKEN
     if not token:
-        raise requests.RequestException("Falta el token interno.")
+        raise requests.RequestException("Falta configurar la variable INTERNAL_SERVICE_TOKEN en el gateway.")
     return _get_json(
         f"{service.rstrip('/')}/{path.lstrip('/')}",
         headers={"X-Internal-Service-Token": token},
@@ -114,14 +117,16 @@ def admin_dashboard(request):
                 ),
             },
         }
-    except requests.RequestException:
+    except requests.RequestException as exc:
+        logger.exception("Error al consultar servicio para el dashboard: %s", exc)
         return JsonResponse(
-            {"detail": "No se pudo consultar un servicio para el dashboard."},
+            {"detail": f"No se pudo consultar un servicio para el dashboard: {exc}"},
             status=503,
         )
-    except (ValueError, TypeError, KeyError):
+    except (ValueError, TypeError, KeyError) as exc:
+        logger.exception("Metricas invalidas o incompletas en dashboard: %s", exc)
         return JsonResponse(
-            {"detail": "Un servicio devolvió métricas incompletas o inválidas."},
+            {"detail": f"Un servicio devolvio metricas incompletas o invalidas: {exc}"},
             status=503,
         )
 
